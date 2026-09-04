@@ -30,13 +30,13 @@
 - 行为：按间隔计时 → 选“离自己最近”的污染地块 → 清除该地块（若其上是我方核心则一并摧毁）
 - 损毁规则：污染覆盖本炮台所在格 ⇒ 损毁（通过返回值 / `destroyed` 信号告知接入方）
 - 清除时的数据面：与现版一致，一次攻击会同时从
-  `polluted` / `radial_polluted` / `directional_polluted` / `units` 四套字典中移除目标地块
+  统一 `polluted`（含各模式标记）与 `units`（若格上为核心）中移除目标地块
 
 **留在主脚本（本模块不负责）**
 - 读取 `maps/*.json`、得到炮台位置数组 `turret_positions`（属地图数据）
 - 全部绘制（炮台外观、充能环、损毁叉号等）与颜色常量
 - 胜负判定与阶段切换（`Phase.WON / LOST`）、HUD 文案、控制台数值项
-- `polluted` / `units` / `radial_polluted` / `directional_polluted` 的数据所有权
+- `polluted` / `units` 的数据所有权（`polluted` 现为含 `{mode,dir}` 标记的统一字典）
 
 绘制所需数据可只读获取：`coord`、`alive`、`charge_fraction()`。
 
@@ -52,7 +52,7 @@
 | “键存在于 `turrets`”= 存活 | `alive == true` | 存活标记 |
 | `enemy_attack_interval` | `attack_interval` | 攻击间隔（运行时/控制台可调，改后需同步到各节点） |
 | `ENEMY_ATTACK_INTERVAL_DEFAULT` | `ATTACK_INTERVAL_DEFAULT` | 默认 0.5s，数值一致 |
-| `_enemy_attack(from)` | `tick()` 内部 | 计时到点 → 清除最近污染地块（含三集合 + 摧毁核心） |
+| `_enemy_attack(from)` | `tick()` 内部 | 计时到点 → 清除最近污染地块（统一 polluted，若含核心则摧毁） |
 | `_nearest_polluted(from)` | `choose_target(polluted)` | 返回最近的污染地块；无目标返回 `NO_TARGET` |
 | `_check_turret_destruction()` | `check_contamination(polluted)` | 逐节点：污染到本炮台格 ⇒ 损毁，返回 `true`、发 `destroyed` |
 | `_draw()` 充能环 `turrets[p] / enemy_attack_interval` | `charge_fraction()` | 充能进度 0..1 |
@@ -72,7 +72,7 @@
 - `reset()`：复活并清零计时
 - `destroy()`：外部摧毁（发 `destroyed`）
 - `tick(delta, polluted, units, radial_polluted := {}, directional_polluted := {}) -> bool`：
-  推进计时；到点清除最近污染地块（四字典引用直改）；返回是否真的攻击
+  推进计时；到点清除最近污染地块（引用直改；后两个为兼容可选集合）；返回是否真的攻击
 - `charge_fraction() -> float`：充能进度，供绘制
 - `check_contamination(polluted) -> bool`：本格被污染 ⇒ 损毁
 - `choose_target(polluted) -> Vector2i`：攻击目标选择（**子类可覆写**做自定义规则）
@@ -95,7 +95,7 @@ var units    := { Vector2i(1, 0): { "type": 0, "remaining": 3.0 } }
 for t in nodes:                       # 每帧各节点独立计时、各打各的
 	if t.tick(0.6, polluted, units):
 		print("attacked")             # 甲清 (1,0) 并摧毁核心；乙清 (0,4)
-# polluted / units 中对应项已被清除（与现版一次攻击清四字典一致）
+# polluted / units 中对应项已被清除
 
 if nodes[0].check_contamination({ Vector2i(0, 0): true }):
 	print("甲炮台被污染摧毁")
@@ -129,7 +129,7 @@ if nodes[0].check_contamination({ Vector2i(0, 0): true }):
 4. **`_process()` 第 6 步**：原 `for tcell in turrets.keys(): ...` 循环替换为：
    ```gdscript
    for t in turret_nodes:
-	   if t.tick(delta, polluted, units, radial_polluted, directional_polluted):
+	   if t.tick(delta, polluted, units):
 		   queue_redraw()
    ```
    失败判断 `not turrets.is_empty()` 改为“仍有存活节点”。
@@ -143,7 +143,7 @@ if nodes[0].check_contamination({ Vector2i(0, 0): true }):
    `t.reset()`（或只清零 `attack_timer`）。
 
 行为等价点：攻击时机、最近目标选取、平局取先遍历者、无目标空过、
-一次攻击清四字典、被污染即损毁等语义，全部保留在
+一次攻击清除污染/核心、被污染即损毁等语义，全部保留在
 `tick() / choose_target() / check_contamination()` 中。
 
 ## 7. 后续扩展方向
@@ -160,7 +160,7 @@ if nodes[0].check_contamination({ Vector2i(0, 0): true }):
 
 - 新脚本解析零错误；`EnemyTurret` 已注册为全局类。
 - 在运行中的游戏进程内做行为冒烟测试，全部符合现版逻辑：
-  - 计时到点攻击并清除最近污染地块；一次攻击同时清 `polluted` / 径向 /
+  - 计时到点攻击并清除最近污染地块；一次攻击同时清统一 `polluted`（径向 /
 	定向集合，并摧毁该格核心（`radial_left=0`、`units_left=0` 等验证通过）；
   - 双炮台各自独立计时、各自打离自己最近的目标（甲→(1,0)、乙→(0,4)）；
   - 计时未到不攻击、无目标空过；

@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://bs1o6053gju4j"]
+
+[ext_resource type="Script" uid="uid://bnfmxh4udj6yu" path="res://scripts/player_core.gd" id="1_d8oo1"]
+
+[node name="PlayerCore" type="Node2D" unique_id=1864126972]
+script = ExtResource("1_d8oo1")
+
+[node name="Visuals" type="Node2D" parent="." unique_id=1857611218]

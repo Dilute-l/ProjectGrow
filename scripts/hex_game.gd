@@ -34,9 +34,7 @@ var walls: Dictionary = {}                    # Vector2i -> true
 var turret_positions: Array[Vector2i] = []    # 所有敌方炮台位置
 
 # 核心数据（从文件读取）
-var core_types: Array = []     # 每个元素为 Dictionary：{id,name,mode,duration,spread_interval,color}
-var radial_interval := 0.9     # 径向扩散的间隔（取 radial 核心的 spread_interval）
-var directional_interval := 0.6  # 定向扩散的间隔（取 directional 核心的 spread_interval）
+var core_types: Array = []     # 每个元素为 Dictionary：{id,name,mode,duration,spread_interval,color}（数据来自 cores.json）
 
 const COL_BG           := Color("0d1321")
 const COL_TILE         := Color("243045")
@@ -61,16 +59,16 @@ const NEIGHBORS: Array[Vector2i] = [
 ]
 
 var phase := Phase.DEPLOY
-# units: Vector2i -> {type:int, remaining:float, direction:Vector2i}
+# units: Vector2i -> PlayerCore 节点（我方可部署核心，每颗 = 一个场景实例）
 var units: Dictionary = {}
-var polluted: Dictionary = {}               # 所有被污染地块（用于胜利判定与敌方攻击）
-var radial_polluted: Dictionary = {}        # 会向四周扩散的污染地块（径向核心产生）
-var directional_polluted: Dictionary = {}   # 沿方向扩散的污染地块：Vector2i -> 方向
+var polluted: Dictionary = {}               # 所有被污染地块：Vector2i -> {mode,dir}（胜利判定与敌方攻击用）
+const CORE_SCENE := preload("res://scenes/player_core.tscn")  # 我方核心独立场景（模块化）
+var core_container: Node2D               # 我方核心场景实例容器
 const TURRET_SCENE := preload("res://scenes/enemy_turret.tscn")  # 敌方炮台独立场景（模块化）
 var turret_map: Dictionary = {}            # Vector2i -> EnemyTurret 节点（存活/计时在节点内部）
 var turret_container: Node2D               # 敌方炮台场景实例容器
-var radial_spread_timer := 0.0
-var directional_spread_timer := 0.0
+var mode_spread_timers: Dictionary = {}    # 模式名 -> 该模式扩散累计秒数
+var mode_intervals: Dictionary = {}        # 模式名 -> 该模式扩散间隔（秒，来自 cores.json）
 var hover_cell := Vector2i(999999, 999999)
 var map_offset := Vector2.ZERO
 var total_hexes := 0
@@ -112,6 +110,7 @@ var file_dialog_purpose := 0       # 0=导入, 1=导出
 func _ready() -> void:
 	_load_map()
 	_load_cores()
+	_register_core_modes()
 	selected_core = clampi(selected_core, 0, core_types.size() - 1)
 	_fit_hex_size()
 	_recenter()
@@ -133,11 +132,11 @@ func _process(delta: float) -> void:
 	# 1) 核心倒计时（到期后核心消失，但其污染地块保留）
 	var expired: Array = []
 	for cell in units.keys():
-		units[cell]["remaining"] = units[cell]["remaining"] - delta
-		if units[cell]["remaining"] <= 0.0:
+		var n: PlayerCore = units[cell]
+		if n.advance(delta):
 			expired.append(cell)
 	for cell in expired:
-		units.erase(cell)
+		_remove_core(cell)
 	# 2) 所有核心已结束：停止蔓延；若仍有存活炮台则失败
 	if units.is_empty():
 		if _alive_turret_count() > 0:
@@ -145,18 +144,19 @@ func _process(delta: float) -> void:
 		_update_status()
 		queue_redraw()
 		return
-	# 3) 径向扩散（只要有存活的径向核心）
-	if _has_radial_core():
-		radial_spread_timer += delta
-		if radial_spread_timer >= radial_interval:
-			radial_spread_timer = 0.0
-			_radial_spread()
-	# 4) 定向扩散（只要有存活的定向核心）：所有被定向核心污染的地块沿各自方向扩散
-	if _has_directional_core():
-		directional_spread_timer += delta
-		if directional_spread_timer >= directional_interval:
-			directional_spread_timer = 0.0
-			_directional_spread()
+	# 3)+4) 各模式扩散：有该模式的存活核心，就按该模式间隔蔓延其污染地块
+	var active_modes: Dictionary = {}
+	for n in units.values():
+		active_modes[n.mode()] = true
+	for m in active_modes:
+		var bm := CoreMode.for_mode(m)
+		if bm == null:
+			continue
+		var iv: float = mode_intervals.get(m, bm.interval_fallback())
+		mode_spread_timers[m] = mode_spread_timers.get(m, 0.0) + delta
+		if mode_spread_timers[m] >= iv:
+			mode_spread_timers[m] = 0.0
+			_spread_mode(m, bm)
 	# 5) 炮台摧毁 / 胜利判定
 	_check_turret_destruction()
 	if phase != Phase.RUNNING:
@@ -165,10 +165,11 @@ func _process(delta: float) -> void:
 		return
 	# 6) 敌方攻击（每个存活炮台独立计时）
 	for t in turret_map.values():
-		if t.tick(delta, polluted, units, radial_polluted, directional_polluted):
+		if t.tick(delta, polluted, units):
 			queue_redraw()
 	if units.is_empty() and _alive_turret_count() > 0:
 		phase = Phase.LOST
+	_free_orphan_cores()
 	_update_status()
 	queue_redraw()
 
@@ -298,13 +299,9 @@ func _load_cores() -> void:
 							})
 	if core_types.is_empty():
 		core_types.append({"id": "spread", "name": "扩散核心", "mode": "radial", "duration": 15.0, "spread_interval": 0.9, "color": "#3fc1ff"})
-	radial_interval = 0.9
-	directional_interval = 0.6
+	mode_intervals.clear()
 	for t in core_types:
-		if t["mode"] == "radial":
-			radial_interval = t["spread_interval"]
-		elif t["mode"] == "directional":
-			directional_interval = t["spread_interval"]
+		mode_intervals[str(t["mode"])] = float(t["spread_interval"])
 
 func _core_color(t: Dictionary) -> Color:
 	var hex := str(t.get("color", ""))
@@ -312,17 +309,18 @@ func _core_color(t: Dictionary) -> Color:
 		return COL_UNIT
 	return Color(hex)
 
-func _has_radial_core() -> bool:
-	for cell in units.keys():
-		if core_types[units[cell]["type"]]["mode"] == "radial":
-			return true
-	return false
+# 注册内置核心行为模式；以后新增「新模式」只需：cores.json 条目 + CoreMode 子类 + 此处一行注册
+func _register_core_modes() -> void:
+	CoreMode.register("radial", RadialCoreMode.new())
+	CoreMode.register("directional", DirectionalCoreMode.new())
 
-func _has_directional_core() -> bool:
-	for cell in units.keys():
-		if core_types[units[cell]["type"]]["mode"] == "directional":
-			return true
-	return false
+# 取模式行为；未注册的模式按径向兜底并告警
+func _behavior_for_mode(mode_name: String) -> CoreMode:
+	var b := CoreMode.for_mode(mode_name)
+	if b == null:
+		push_warning("未注册的核心模式「%s」，按径向处理" % mode_name)
+		b = CoreMode.for_mode("radial")
+	return b
 
 # ---------------------------------------------------------------------------
 # 布局与几何
@@ -407,20 +405,20 @@ func _draw() -> void:
 		var closed := pts.duplicate()
 		closed.append(pts[0])
 		draw_polyline(closed, Color(1.0, 1.0, 1.0, 0.18), 1.0)
-	# 我方单位（核心）
+	# 我方单位（核心，PlayerCore 场景实例）
 	for cell in units:
-		var u: Dictionary = units[cell]
-		var t: Dictionary = core_types[u["type"]]
+		var n: PlayerCore = units[cell]
+		var t: Dictionary = n.config
 		var col := _core_color(t)
 		var c := hex_center(cell)
 		draw_circle(c, hex_size * 0.40, col)
 		draw_arc(c, hex_size * 0.40, 0.0, TAU, 24, col.lightened(0.5), 2.0)
 		# 持续时间环
-		var frac := clampf(u["remaining"] / t["duration"], 0.0, 1.0)
+		var frac := clampf(n.remaining / float(t["duration"]), 0.0, 1.0)
 		draw_arc(c, hex_size * 0.52, -PI * 0.5, -PI * 0.5 + TAU * frac, 24, col.lightened(0.5), 3.0)
-		# 定向核心：绘制方向箭头
-		if t["mode"] == "directional":
-			var dirv: Vector2i = u["direction"]
+		# 定向模式核心：绘制方向箭头
+		if n.mode() == "directional":
+			var dirv: Vector2i = n.direction
 			var dirpx := (hex_center(cell + dirv) - c).normalized()
 			draw_line(c, c + dirpx * hex_size * 0.62, col.lightened(0.25), 3.0)
 			draw_circle(c + dirpx * hex_size * 0.62, 3.0, col.lightened(0.25))
@@ -520,13 +518,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		if (event.keycode == KEY_SPACE or event.keycode == KEY_ENTER) and phase == Phase.DEPLOY:
 			_start()
 
-func _make_unit(type_idx: int) -> Dictionary:
-	var t: Dictionary = core_types[type_idx]
-	return {
-		"type": type_idx,
-		"remaining": t["duration"],
-		"direction": Vector2i.ZERO,
-	}
+func _spawn_core(cell: Vector2i, type_idx: int, dir: Vector2i) -> void:
+	var cfg: Dictionary = core_types[type_idx]
+	var n: PlayerCore = CORE_SCENE.instantiate()
+	n.setup(cell, type_idx, cfg, dir)
+	core_container.add_child(n)
+	units[cell] = n
+	_pollute_with(cell, n.payload())
+
+func _remove_core(cell: Vector2i) -> void:
+	var n: PlayerCore = units.get(cell)
+	if n != null:
+		units.erase(cell)
+		n.queue_free()
 
 func _try_place(cell: Vector2i) -> void:
 	if not in_bounds(cell):
@@ -541,35 +545,30 @@ func _try_place(cell: Vector2i) -> void:
 		_set_status("已达到最大部署数量（%d 个）" % max_units)
 		return
 	var t: Dictionary = core_types[selected_core]
-	if t["mode"] == "directional":
-		# 定向核心：先放置，再选方向
+	if _behavior_for_mode(str(t["mode"])).needs_direction():
+		# 定向模式核心：先选地块，再选相邻方向
 		awaiting_direction = true
 		pending_cell = cell
 		pending_type = selected_core
 		_update_status()
 		queue_redraw()
 		return
-	# 径向核心：立即放置
-	units[cell] = _make_unit(selected_core)
-	_radial_pollute(cell)
+	# 其余模式：立即放置
+	_spawn_core(cell, selected_core, Vector2i.ZERO)
 	_update_status()
 	queue_redraw()
 
 func _finalize_directional(dir_cell: Vector2i) -> void:
 	var dir: Vector2i = dir_cell - pending_cell
-	units[pending_cell] = _make_unit(pending_type)
-	units[pending_cell]["direction"] = dir
-	_directional_pollute(pending_cell, dir)  # 记录该地块的定向方向
+	_spawn_core(pending_cell, pending_type, dir)
 	awaiting_direction = false
 	_update_status()
 	queue_redraw()
 
 func _try_remove(cell: Vector2i) -> void:
 	if units.has(cell):
-		units.erase(cell)
+		_remove_core(cell)
 		polluted.erase(cell)
-		radial_polluted.erase(cell)
-		directional_polluted.erase(cell)
 		_update_status()
 		queue_redraw()
 
@@ -580,8 +579,7 @@ func _start() -> void:
 		_set_status("请至少部署一个单位")
 		return
 	phase = Phase.RUNNING
-	radial_spread_timer = 0.0
-	directional_spread_timer = 0.0
+	mode_spread_timers.clear()
 	awaiting_direction = false
 	for t in turret_map.values():
 		t.reset()
@@ -593,11 +591,13 @@ func _reset() -> void:
 	phase = Phase.DEPLOY
 	units.clear()
 	polluted.clear()
-	radial_polluted.clear()
-	directional_polluted.clear()
+	if core_container != null and is_instance_valid(core_container):
+		core_container.queue_free()
+	core_container = Node2D.new()
+	core_container.name = "PlayerCores"
+	add_child(core_container)
+	mode_spread_timers.clear()
 	_rebuild_turrets()
-	radial_spread_timer = 0.0
-	directional_spread_timer = 0.0
 	awaiting_direction = false
 	start_button.disabled = (mode == Mode.EDIT)
 	_update_status()
@@ -763,38 +763,31 @@ func _build_file_dialog() -> void:
 # ---------------------------------------------------------------------------
 # 污染与扩散
 # ---------------------------------------------------------------------------
-func _pollute(cell: Vector2i) -> void:
-	polluted[cell] = true
+# 污染统一放在 polluted：Vector2i -> {mode,dir}；各模式的扩散规则由 CoreMode 提供
+func _pollute_with(cell: Vector2i, payload: Dictionary) -> void:
+	polluted[cell] = payload
 
-func _radial_pollute(cell: Vector2i) -> void:
-	polluted[cell] = true
-	radial_polluted[cell] = true
-
-func _directional_pollute(cell: Vector2i, dir: Vector2i) -> void:
-	polluted[cell] = true
-	directional_polluted[cell] = dir
-
-func _radial_spread() -> void:
-	var snapshot: Array = radial_polluted.keys()
+# 对一种模式的所有污染地块做一次扩散（行为规则来自 CoreMode，主脚本只做通用过滤）
+func _spread_mode(mode_name: String, bm: CoreMode) -> void:
+	var snapshot: Array = polluted.keys()
 	var newly: Dictionary = {}
 	for cell in snapshot:
-		for d in NEIGHBORS:
-			var n: Vector2i = cell + d
-			if in_bounds(n) and not polluted.has(n) and not walls.has(n):
-				newly[n] = true
+		var pl: Dictionary = polluted[cell]
+		if str(pl.get("mode", "")) != mode_name:
+			continue
+		for n: Vector2i in bm.spread_candidates(cell, pl):
+			if in_bounds(n) and not polluted.has(n) and not walls.has(n) and not newly.has(n):
+				newly[n] = pl
 	for c in newly:
-		_radial_pollute(c)
+		_pollute_with(c, newly[c])
 
-func _directional_spread() -> void:
-	var snapshot: Array = directional_polluted.keys()
-	var newly: Dictionary = {}
-	for cell in snapshot:
-		var dir: Vector2i = directional_polluted[cell]
-		var n: Vector2i = cell + dir
-		if in_bounds(n) and not polluted.has(n) and not walls.has(n):
-			newly[n] = dir
-	for c in newly:
-		_directional_pollute(c, newly[c])
+# 敌方攻击清除目标地块后 units 中对应核心已被 erase；此函数释放残留的场景实例
+func _free_orphan_cores() -> void:
+	if core_container == null or not is_instance_valid(core_container):
+		return
+	for child in core_container.get_children():
+		if not units.has((child as PlayerCore).coord):
+			child.queue_free()
 
 func _check_turret_destruction() -> void:
 	var destroyed := false

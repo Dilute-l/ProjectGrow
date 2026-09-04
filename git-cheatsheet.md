@@ -1,4 +1,4 @@
-# Git 速查表（ProjectGrow 开发用）
+Git 速查表（ProjectGrow 开发用）
 
 ## 命令在哪里输入？
 1. 打开文件夹：`C:\Users\catkin\Documents\test-2\ProjectGrow`
