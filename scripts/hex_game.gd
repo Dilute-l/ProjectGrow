@@ -11,7 +11,8 @@ extends Node2D
 ## 只能在地图最外围一圈部署单位；墙阻挡污染且不可部署；核心到期后其污染地块保留但不再扩散。
 ## 每个敌方炮台每隔一段时间攻击，清除离自己最近的污染地块。
 ## 污染到达所有敌方炮台所在地块 => 胜利；所有核心结束而仍有存活炮台 => 失败。
-## 按 R 打开/关闭控制台，可调整最大部署数量与敌方攻击间隔。
+## 按 R 打开/关闭控制台，可调整敌方攻击间隔。部署核心会消耗部署费用
+##（初始值/上限定义在 player_core.gd，各模式消耗定义在其 CoreMode 文件中）。
 
 # ---------------------------------------------------------------------------
 # 路径与默认值
@@ -20,15 +21,15 @@ const MAP_PATH := "res://maps/level1.json"    # 地图数据文件
 const CORES_PATH := "res://maps/cores.json"   # 核心数据文件
 
 const HEX_SIZE_DEFAULT := 26.0              # 六边形中心到顶点的距离（像素，默认）
-const MAX_UNITS_DEFAULT := 4                # 最大部署数量（默认）
 const ENEMY_ATTACK_INTERVAL_DEFAULT := 0.5  # 敌方攻击间隔（秒，默认）
 const TURRET_ATTACK_RANGE := 3              # 炮台攻击范围（格），用于范围高亮；与 enemy_turret.gd 默认一致
 const FIRST_RUN_FLAG := "user://has_started.flag"  # 首次进入标记（决定是否播放新手教程）
 
 # 运行时数值（可在控制台修改）
 var hex_size := HEX_SIZE_DEFAULT
-var max_units := MAX_UNITS_DEFAULT
 var enemy_attack_interval := ENEMY_ATTACK_INTERVAL_DEFAULT
+# 部署费用（玩家整体资源；初始值与上限定义在 PlayerCore）
+var deploy_points := PlayerCore.DEPLOY_COST_START   # 当前剩余部署费用（点）
 
 # 地图数据（从文件读取 / 编辑）
 var map_radius := 0                            # 六边形地图半径（中心向外层数）
@@ -90,13 +91,16 @@ var core_selector_panel: PanelContainer = null
 # 控制台
 var console_open := false
 var console_layer: CanvasLayer
-var sb_units: SpinBox
 var sb_enemy: SpinBox
 
 var status_label: Label
 var start_button: Button
 var core_buttons: Array[Button] = []
 var core_selector_layer: CanvasLayer
+
+# 部署费用条（位于核心类型选择区上方，实时显示）
+var cost_bar: ProgressBar
+var cost_value_label: Label
 
 # 地图编辑器
 enum Mode { PLAY, EDIT }
@@ -336,6 +340,15 @@ func _behavior_for_mode(mode_name: String) -> CoreMode:
 		b = CoreMode.for_mode("radial")
 	return b
 
+# 部署该模式一颗核心的费用：读取对应 CoreMode 子类里的 DEPLOY_COST 常量
+func _mode_deploy_cost(mode_name: String) -> int:
+	var bm := _behavior_for_mode(mode_name)
+	var cm: Dictionary = bm.get_script().get_script_constant_map()
+	if cm.has("DEPLOY_COST"):
+		return int(cm["DEPLOY_COST"])
+	push_warning("模式「%s」未定义 DEPLOY_COST，按 1 计" % mode_name)
+	return 1
+
 # ---------------------------------------------------------------------------
 # 布局与几何
 # ---------------------------------------------------------------------------
@@ -553,11 +566,17 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _spawn_core(cell: Vector2i, type_idx: int, dir: Vector2i) -> void:
 	var cfg: Dictionary = core_types[type_idx]
+	var cost := _mode_deploy_cost(str(cfg.get("mode", "radial")))
+	if deploy_points < cost:
+		_set_status("部署费用不足：需要 %d 点，剩余 %d 点" % [cost, deploy_points])
+		return
+	deploy_points -= cost
 	var n: PlayerCore = CORE_SCENE.instantiate()
 	n.setup(cell, type_idx, cfg, dir)
 	core_container.add_child(n)
 	units[cell] = n
 	_pollute_with(cell, n.payload())
+	_update_cost_ui()
 	if tutorial_gate == "deploy":
 		_on_tutorial_deployed()
 
@@ -582,10 +601,11 @@ func _try_place(cell: Vector2i) -> void:
 		return
 	if units.has(cell):
 		return
-	if units.size() >= max_units:
-		_set_status("已达到最大部署数量（%d 个）" % max_units)
-		return
 	var t: Dictionary = core_types[selected_core]
+	var cost := _mode_deploy_cost(str(t["mode"]))
+	if deploy_points < cost:
+		_set_status("部署费用不足：需要 %d 点，剩余 %d 点" % [cost, deploy_points])
+		return
 	if _behavior_for_mode(str(t["mode"])).needs_direction():
 		# 定向模式核心：先选地块，再选相邻方向
 		awaiting_direction = true
@@ -608,8 +628,11 @@ func _finalize_directional(dir_cell: Vector2i) -> void:
 
 func _try_remove(cell: Vector2i) -> void:
 	if units.has(cell):
+		var refund := _mode_deploy_cost((units[cell] as PlayerCore).mode())
 		_remove_core(cell)
 		polluted.erase(cell)
+		deploy_points = mini(deploy_points + refund, PlayerCore.DEPLOY_COST_MAX)
+		_update_cost_ui()
 		_update_status()
 		queue_redraw()
 
@@ -630,6 +653,7 @@ func _start() -> void:
 
 func _reset() -> void:
 	phase = Phase.DEPLOY
+	deploy_points = PlayerCore.DEPLOY_COST_START
 	units.clear()
 	polluted.clear()
 	if core_container != null and is_instance_valid(core_container):
@@ -641,6 +665,7 @@ func _reset() -> void:
 	_rebuild_turrets()
 	awaiting_direction = false
 	start_button.disabled = (mode == Mode.EDIT)
+	_update_cost_ui()
 	_update_status()
 	queue_redraw()
 
@@ -1033,6 +1058,26 @@ func _build_core_selector() -> void:
 	vbox.add_theme_constant_override("separation", 6)
 	margin.add_child(vbox)
 
+	# 部署费用条（实时显示剩余费用；位于核心类型上方）
+	var cost_row := HBoxContainer.new()
+	cost_row.add_theme_constant_override("separation", 6)
+	vbox.add_child(cost_row)
+	var cost_caption := Label.new()
+	cost_caption.text = "部署费用"
+	cost_caption.add_theme_font_size_override("font_size", 14)
+	cost_row.add_child(cost_caption)
+	cost_bar = ProgressBar.new()
+	cost_bar.min_value = 0.0
+	cost_bar.max_value = float(PlayerCore.DEPLOY_COST_MAX)
+	cost_bar.value = float(deploy_points)
+	cost_bar.show_percentage = false
+	cost_bar.custom_minimum_size = Vector2(100, 0)
+	cost_row.add_child(cost_bar)
+	cost_value_label = Label.new()
+	cost_value_label.add_theme_font_size_override("font_size", 14)
+	cost_row.add_child(cost_value_label)
+	_update_cost_ui()
+
 	var title := Label.new()
 	title.text = "选择核心类型"
 	title.add_theme_font_size_override("font_size", 16)
@@ -1072,6 +1117,16 @@ func _set_status(text: String) -> void:
 	if status_label:
 		status_label.text = text
 
+# 部署费用条（核心选择区上方）：文本与进度
+func _cost_text() -> String:
+	return "%d/%d" % [deploy_points, PlayerCore.DEPLOY_COST_MAX]
+
+func _update_cost_ui() -> void:
+	if cost_bar != null:
+		cost_bar.value = float(deploy_points)
+	if cost_value_label != null:
+		cost_value_label.text = _cost_text()
+
 func _update_status() -> void:
 	if mode == Mode.EDIT:
 		_set_status("编辑模式：左键放置（墙/炮台），右键擦除；工具栏可调半径、导入/导出 JSON")
@@ -1084,7 +1139,7 @@ func _update_status() -> void:
 				_set_status("部署阶段：请先在右下角选择核心类型")
 			else:
 				var t: Dictionary = core_types[selected_core]
-				_set_status("部署阶段：当前核心「%s」，剩余可部署 %d 个（只能部署在最外围一圈）" % [t["name"], max_units - units.size()])
+				_set_status("部署阶段：当前核心「%s」（消耗 %d 点费用）｜剩余部署费用 %d/%d（只能部署在最外围一圈）" % [t["name"], _mode_deploy_cost(str(t["mode"])), deploy_points, PlayerCore.DEPLOY_COST_MAX])
 		Phase.RUNNING:
 			_set_status("扩散中…… 已污染 %d/%d | 存活核心 %d | 存活炮台 %d" % [polluted.size(), total_hexes, units.size(), _alive_turret_count()])
 		Phase.WON:
@@ -1129,10 +1184,6 @@ func _build_console() -> void:
 	title.text = "控制台 · 调整数值"
 	title.add_theme_font_size_override("font_size", 22)
 	vbox.add_child(title)
-
-	# 我方
-	vbox.add_child(_section_label("—— 我方 ——"))
-	sb_units = _add_spin_row(vbox, "最大部署数量", 1.0, 12.0, 1.0, max_units, true)
 
 	# 敌方
 	vbox.add_child(_section_label("—— 敌方 ——"))
@@ -1196,7 +1247,6 @@ func _add_spin_row(parent: Control, label_text: String, mn: float, mx: float, st
 	return sb
 
 func _open_console() -> void:
-	sb_units.value = max_units
 	sb_enemy.value = enemy_attack_interval
 	console_open = true
 	console_layer.visible = true
@@ -1208,7 +1258,6 @@ func _close_console() -> void:
 	queue_redraw()
 
 func _console_apply() -> void:
-	max_units = int(round(sb_units.value))
 	enemy_attack_interval = sb_enemy.value
 	for t in turret_map.values():
 		t.attack_interval = enemy_attack_interval
@@ -1216,11 +1265,9 @@ func _console_apply() -> void:
 	queue_redraw()
 
 func _console_defaults() -> void:
-	max_units = MAX_UNITS_DEFAULT
 	enemy_attack_interval = ENEMY_ATTACK_INTERVAL_DEFAULT
 	for t in turret_map.values():
 		t.attack_interval = enemy_attack_interval
-	sb_units.value = max_units
 	sb_enemy.value = enemy_attack_interval
 	_update_status()
 	queue_redraw()
