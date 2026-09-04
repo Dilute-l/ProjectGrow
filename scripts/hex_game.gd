@@ -1,16 +1,22 @@
 extends Node2D
 
 ## 六边形污染扩散 —— 玩法示例
-## 部署我方单位（不会移动），单位污染身下地块；每隔一段时间，每个污染地块
-## 会向周围所有相邻地块扩散；当污染扩散到中央敌方炮台所在地块时，炮台损毁。
+## 部署我方单位（不会移动），每个单位是一个“核心”，拥有持续时间，会污染身下地块；
+## 只要还有存活的核心，每个污染地块每隔一段时间就会向周围所有相邻地块扩散；
+## 核心结束后，已蔓延出的污染地块保留但不再继续蔓延。敌方炮台每隔一段时间攻击，
+## 清除离自己最近的污染地块（若为核心所在地块则摧毁核心）。
+## 污染到达中央炮台所在地块 => 炮台损毁、我方获胜；
+## 所有核心持续时间结束而敌方仍存活 => 我方失败。
 
 # ---------------------------------------------------------------------------
 # 配置
 # ---------------------------------------------------------------------------
-const HEX_SIZE := 26.0          # 六边形中心到顶点的距离（像素）
-const GRID_RADIUS := 4          # 六边形地图半径（中心向外层数）
-const MAX_UNITS := 4            # 可部署的我方单位数量
-const SPREAD_INTERVAL := 0.9    # 每次扩散的时间间隔（秒）
+const HEX_SIZE := 26.0            # 六边形中心到顶点的距离（像素）
+const GRID_RADIUS := 4            # 六边形地图半径（中心向外层数）
+const MAX_UNITS := 4              # 可部署的我方单位数量
+const SPREAD_INTERVAL := 0.9      # 每次扩散的时间间隔（秒）
+const CORE_DURATION := 15.0       # 每个单位“核心”的持续时间（秒）
+const ENEMY_ATTACK_INTERVAL := 0.5  # 敌方每次攻击的间隔（秒）
 
 const COL_BG           := Color("0d1321")
 const COL_TILE         := Color("243045")
@@ -24,7 +30,7 @@ const COL_TURRET_RING  := Color("ffd6d6")
 const COL_TURRET_DEAD  := Color("4a2525")
 const COL_LINE         := Color(1.0, 1.0, 1.0, 0.10)
 
-enum Phase { DEPLOY, RUNNING, WON }
+enum Phase { DEPLOY, RUNNING, WON, LOST }
 
 const NEIGHBORS: Array[Vector2i] = [
 	Vector2i(1, 0), Vector2i(-1, 0),
@@ -33,11 +39,12 @@ const NEIGHBORS: Array[Vector2i] = [
 ]
 
 var phase := Phase.DEPLOY
-var units: Dictionary = {}      # Vector2i -> true
+var units: Dictionary = {}      # Vector2i -> 剩余持续时间（秒）
 var polluted: Dictionary = {}   # Vector2i -> true
 var turret_coord := Vector2i.ZERO
 var turret_alive := true
 var spread_timer := 0.0
+var enemy_attack_timer := 0.0
 var hover_cell := Vector2i(999999, 999999)
 var map_offset := Vector2.ZERO
 var total_hexes := 0
@@ -59,10 +66,40 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if phase != Phase.RUNNING:
 		return
+	# 1) 核心倒计时（到期后核心消失，但其污染地块保留）
+	var expired: Array = []
+	for cell in units.keys():
+		units[cell] = units[cell] - delta
+		if units[cell] <= 0.0:
+			expired.append(cell)
+	for cell in expired:
+		units.erase(cell)
+	# 2) 所有核心已结束：停止蔓延；若敌方仍存活则失败
+	if units.is_empty():
+		if turret_alive:
+			phase = Phase.LOST
+		_update_status()
+		queue_redraw()
+		return
+	# 3) 污染蔓延（只要还有存活核心）
 	spread_timer += delta
 	if spread_timer >= SPREAD_INTERVAL:
 		spread_timer = 0.0
 		_spread_tick()
+	if phase != Phase.RUNNING:  # 蔓延导致胜利
+		_update_status()
+		queue_redraw()
+		return
+	# 4) 敌方攻击
+	enemy_attack_timer += delta
+	if enemy_attack_timer >= ENEMY_ATTACK_INTERVAL:
+		enemy_attack_timer = 0.0
+		_enemy_attack()
+	# 敌方攻击可能摧毁最后一个核心
+	if units.is_empty() and turret_alive:
+		phase = Phase.LOST
+	_update_status()
+	queue_redraw()
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_SIZE_CHANGED:
@@ -128,11 +165,14 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), COL_BG)
 	for cell in all_cells():
 		draw_hex(hex_center(cell), HEX_SIZE - 1.2, _tile_color(cell))
-	# 我方单位
+	# 我方单位（核心）
 	for cell in units:
 		var c := hex_center(cell)
 		draw_circle(c, HEX_SIZE * 0.40, COL_UNIT)
 		draw_arc(c, HEX_SIZE * 0.40, 0.0, TAU, 24, COL_UNIT_RING, 2.0)
+		# 持续时间环（随剩余时间缩短）
+		var frac := clampf(units[cell] / CORE_DURATION, 0.0, 1.0)
+		draw_arc(c, HEX_SIZE * 0.52, -PI * 0.5, -PI * 0.5 + TAU * frac, 24, COL_UNIT_RING, 3.0)
 	# 敌方炮台
 	var tc := hex_center(turret_coord)
 	if turret_alive:
@@ -141,6 +181,10 @@ func _draw() -> void:
 		var dir := Vector2(0.0, -1.0) * HEX_SIZE * 0.82
 		var perp := Vector2(HEX_SIZE * 0.22, 0.0)
 		draw_colored_polygon(PackedVector2Array([tc + dir, tc + perp, tc - perp]), COL_TURRET)
+		if phase == Phase.RUNNING:
+			# 敌方攻击充能环
+			var afrac := clampf(enemy_attack_timer / ENEMY_ATTACK_INTERVAL, 0.0, 1.0)
+			draw_arc(tc, HEX_SIZE * 0.66, -PI * 0.5, -PI * 0.5 + TAU * afrac, 32, COL_TURRET_RING, 2.5)
 	else:
 		draw_circle(tc, HEX_SIZE * 0.52, COL_TURRET_DEAD)
 		draw_line(tc + Vector2(-1, -1) * HEX_SIZE * 0.3, tc + Vector2(1, 1) * HEX_SIZE * 0.3, COL_TURRET_RING, 3.0)
@@ -194,7 +238,7 @@ func _try_place(cell: Vector2i) -> void:
 	if units.size() >= MAX_UNITS:
 		_set_status("已达到最大部署数量（%d 个）" % MAX_UNITS)
 		return
-	units[cell] = true
+	units[cell] = CORE_DURATION
 	_pollute(cell)
 	_update_status()
 	queue_redraw()
@@ -213,6 +257,8 @@ func _start() -> void:
 		_set_status("请至少部署一个单位")
 		return
 	phase = Phase.RUNNING
+	spread_timer = 0.0
+	enemy_attack_timer = 0.0
 	start_button.disabled = true
 	_update_status()
 	queue_redraw()
@@ -223,6 +269,7 @@ func _reset() -> void:
 	polluted.clear()
 	turret_alive = true
 	spread_timer = 0.0
+	enemy_attack_timer = 0.0
 	start_button.disabled = false
 	_update_status()
 	queue_redraw()
@@ -246,8 +293,29 @@ func _spread_tick() -> void:
 	if turret_alive and polluted.has(turret_coord):
 		turret_alive = false
 		phase = Phase.WON
-	_update_status()
 	queue_redraw()
+
+# ---------------------------------------------------------------------------
+# 敌方攻击
+# ---------------------------------------------------------------------------
+func _enemy_attack() -> void:
+	var target = _nearest_polluted(turret_coord)
+	if target == null:
+		return
+	polluted.erase(target)
+	if units.has(target):
+		units.erase(target)  # 摧毁我方单位核心
+	queue_redraw()
+
+func _nearest_polluted(from: Vector2i) -> Variant:
+	var best = null
+	var best_d := 1 << 30
+	for cell in polluted.keys():
+		var d := cube_dist(cell, from)
+		if d < best_d:
+			best_d = d
+			best = cell
+	return best
 
 # ---------------------------------------------------------------------------
 # HUD
@@ -278,9 +346,9 @@ func _build_hud() -> void:
 	vbox.add_child(title)
 
 	info_label = Label.new()
-	info_label.text = "点击地块部署我方单位（不会移动），部署的单位会污染身下地块；每隔一段时间，污染会向周围所有相邻地块扩散。\n当中央敌方炮台所在的地块被污染时，炮台损毁，我方获胜。"
+	info_label.text = "点击地块部署我方单位（核心），每个核心有持续时间，会污染身下地块并每隔一段时间向周围所有相邻地块扩散；核心结束后污染地块保留但不再蔓延。\n敌方炮台每隔一段时间攻击，清除离自己最近的污染地块（核心所在地块会被摧毁）。\n污染到达中央炮台所在地块则我方获胜；所有核心持续时间结束而敌方仍存活则我方失败。"
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	info_label.custom_minimum_size = Vector2(420, 0)
+	info_label.custom_minimum_size = Vector2(460, 0)
 	vbox.add_child(info_label)
 
 	status_label = Label.new()
@@ -309,8 +377,11 @@ func _set_status(text: String) -> void:
 func _update_status() -> void:
 	match phase:
 		Phase.DEPLOY:
-			_set_status("部署阶段：剩余可部署单位 %d 个（左键放置 / 右键撤销）" % (MAX_UNITS - units.size()))
+			_set_status("部署阶段：剩余可部署单位 %d 个（每个核心持续 %.0f 秒）" % [MAX_UNITS - units.size(), CORE_DURATION])
 		Phase.RUNNING:
-			_set_status("扩散中…… 已污染 %d / %d 个地块" % [polluted.size(), total_hexes])
+			var next_attack := maxf(ENEMY_ATTACK_INTERVAL - enemy_attack_timer, 0.0)
+			_set_status("扩散中…… 已污染 %d/%d 地块 | 存活核心 %d | 敌方 %.1f 秒后攻击" % [polluted.size(), total_hexes, units.size(), next_attack])
 		Phase.WON:
 			_set_status("胜利！敌方炮台所在地块已被污染，炮台损毁")
+		Phase.LOST:
+			_set_status("失败！所有单位核心已结束，而敌方炮台仍存活")
