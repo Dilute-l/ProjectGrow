@@ -8,7 +8,7 @@ extends Node2D
 ## 核心类型（右下角选择）：
 ##   - 扩散核心（radial）：污染身下地块，并每隔一段时间向周围所有相邻地块扩散；
 ##   - 定向核心（directional）：部署时须点击相邻地块选择方向，其污染的地块会沿该方向扩散。
-## 墙阻挡污染且不可部署；核心到期后其污染地块保留但不再扩散。
+## 只能在地图最外围一圈部署单位；墙阻挡污染且不可部署；核心到期后其污染地块保留但不再扩散。
 ## 每个敌方炮台每隔一段时间攻击，清除离自己最近的污染地块。
 ## 污染到达所有敌方炮台所在地块 => 胜利；所有核心结束而仍有存活炮台 => 失败。
 ## 按 R 打开/关闭控制台，可调整最大部署数量与敌方攻击间隔。
@@ -22,6 +22,7 @@ const CORES_PATH := "res://maps/cores.json"   # 核心数据文件
 const HEX_SIZE_DEFAULT := 26.0              # 六边形中心到顶点的距离（像素，默认）
 const MAX_UNITS_DEFAULT := 4                # 最大部署数量（默认）
 const ENEMY_ATTACK_INTERVAL_DEFAULT := 0.5  # 敌方攻击间隔（秒，默认）
+const TURRET_ATTACK_RANGE := 3              # 炮台攻击范围（格），用于范围高亮；与 enemy_turret.gd 默认一致
 
 # 运行时数值（可在控制台修改）
 var hex_size := HEX_SIZE_DEFAULT
@@ -386,6 +387,9 @@ func all_cells() -> Array[Vector2i]:
 func _is_neighbor(a: Vector2i, b: Vector2i) -> bool:
 	return NEIGHBORS.has(a - b)
 
+func _is_edge(cell: Vector2i) -> bool:
+	return cube_dist(cell, Vector2i.ZERO) == map_radius
+
 # ---------------------------------------------------------------------------
 # 绘制
 # ---------------------------------------------------------------------------
@@ -393,6 +397,15 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), COL_BG)
 	for cell in all_cells():
 		draw_hex(hex_center(cell), hex_size - 1.2, _tile_color(cell))
+	# 炮台攻击范围高亮
+	for cell in all_cells():
+		if not walls.has(cell) and not turret_positions.has(cell) and _in_any_turret_range(cell):
+			draw_hex(hex_center(cell), hex_size - 1.2, Color(1.0, 0.35, 0.35, 0.16))
+	# 可部署的最外围一圈提示（部署阶段）
+	if mode == Mode.PLAY and phase == Phase.DEPLOY:
+		for cell in all_cells():
+			if _is_edge(cell) and not walls.has(cell) and not turret_positions.has(cell):
+				draw_arc(hex_center(cell), hex_size * 0.55, 0.0, TAU, 24, Color(0.8, 1.0, 1.0, 0.30), 2.0)
 	# 墙（内部实心块 + 边框）
 	for cell in walls:
 		var c := hex_center(cell)
@@ -454,8 +467,11 @@ func _tile_color(cell: Vector2i) -> Color:
 		return COL_WALL
 	if polluted.has(cell):
 		return COL_POLLUTED_HI if cell == hover_cell else COL_POLLUTED
-	if cell == hover_cell and (mode == Mode.EDIT or phase == Phase.DEPLOY) and not turret_positions.has(cell) and not units.has(cell):
-		return COL_TILE_HOVER
+	if cell == hover_cell and not turret_positions.has(cell) and not units.has(cell):
+		if mode == Mode.EDIT:
+			return COL_TILE_HOVER
+		if phase == Phase.DEPLOY and _is_edge(cell):
+			return COL_TILE_HOVER
 	return COL_TILE
 
 func draw_hex(center: Vector2, size: float, col: Color) -> void:
@@ -538,6 +554,9 @@ func _try_place(cell: Vector2i) -> void:
 	if walls.has(cell):
 		return
 	if turret_positions.has(cell):
+		return
+	if not _is_edge(cell):
+		_set_status("只能在最外围一圈部署单位")
 		return
 	if units.has(cell):
 		return
@@ -819,6 +838,17 @@ func _alive_turret_count() -> int:
 		if t.alive:
 			n += 1
 	return n
+
+func _in_any_turret_range(cell: Vector2i) -> bool:
+	if mode == Mode.EDIT:
+		for p in turret_positions:
+			if cube_dist(cell, p) <= TURRET_ATTACK_RANGE:
+				return true
+	else:
+		for t in turret_map.values():
+			if t.alive and cube_dist(cell, t.coord) <= t.attack_range:
+				return true
+	return false
 # ---------------------------------------------------------------------------
 # HUD
 # ---------------------------------------------------------------------------
@@ -861,7 +891,7 @@ func _build_hud() -> void:
 	title_row.add_child(close_tut)
 
 	info_label = Label.new()
-	info_label.text = "在右下角选择要部署的核心类型：\n· 扩散核心（径向）：污染身下地块，并每隔一段时间向周围所有相邻地块扩散。\n· 定向核心：部署后需点击相邻地块选择延伸方向，其污染的地块会沿该方向扩散。\n墙阻挡污染且不可部署；核心到期后其污染地块保留但不再扩散。\n每个敌方炮台每隔一段时间攻击，清除离自己最近的污染地块。\n污染到达所有敌方炮台所在地块则获胜；所有核心结束而仍有存活炮台则失败。\n按 R 打开控制台调整数值；按 Tab 切换编辑/游玩模式。"
+	info_label.text = "在右下角选择要部署的核心类型：\n· 扩散核心（径向）：污染身下地块，并每隔一段时间向周围所有相邻地块扩散。\n· 定向核心：部署后需点击相邻地块选择延伸方向，其污染的地块会沿该方向扩散。\n只能在地图最外围一圈部署单位；墙阻挡污染且不可部署；核心到期后其污染地块保留但不再扩散。\n每个敌方炮台每隔一段时间攻击，清除离自己最近的污染地块。\n污染到达所有敌方炮台所在地块则获胜；所有核心结束而仍有存活炮台则失败。\n按 R 打开控制台调整数值；按 Tab 切换编辑/游玩模式。"
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info_label.custom_minimum_size = Vector2(460, 0)
 	tutorial_box.add_child(info_label)
@@ -959,7 +989,7 @@ func _update_status() -> void:
 				_set_status("定向核心：请点击相邻地块选择延伸方向（右键取消）")
 			else:
 				var t: Dictionary = core_types[selected_core]
-				_set_status("部署阶段：当前核心「%s」，剩余可部署 %d 个（右下角选择核心类型）" % [t["name"], max_units - units.size()])
+				_set_status("部署阶段：当前核心「%s」，剩余可部署 %d 个（只能部署在最外围一圈）" % [t["name"], max_units - units.size()])
 		Phase.RUNNING:
 			_set_status("扩散中…… 已污染 %d/%d | 存活核心 %d | 存活炮台 %d" % [polluted.size(), total_hexes, units.size(), _alive_turret_count()])
 		Phase.WON:
