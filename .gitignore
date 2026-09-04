@@ -1,3 +1,5 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+# 个人开发备忘/速查表：跨成员编辑易冲突，不再入库跟踪
+/git-cheatsheet.md
