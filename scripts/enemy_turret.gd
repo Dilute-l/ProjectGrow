@@ -13,9 +13,8 @@ extends Node2D
 ##     攻击间隔 attack_interval（可运行时调整）；
 ##   - 攻击逻辑：按间隔计时，在攻击范围（attack_range，立方体距离，默认 3 格）
 ##     内选择“离自己最近”的污染地块，清除它；若该地块上是我方核心则一并摧毁。
-##     与现版 hex_game.gd 一致：
-##     清除地块时会同时从 polluted / radial_polluted / directional_polluted
-##     三套集合中移除；
+##     核心改造后污染已并入统一 polluted 字典（值 {mode,dir}），清除一次即可；
+##     传入的 radial_polluted / directional_polluted（可选兼容集合）也会一并移除；
 ##   - 损毁规则：污染蔓延到本炮台所在格 => 损毁（见 check_contamination()）。
 ##
 ## 【本节点不负责（留在主脚本 / 接入方）】
@@ -31,7 +30,7 @@ extends Node2D
 ##   turrets 字典的值（该炮台距下次攻击的秒数）   ->  attack_timer
 ##   “键存在于 turrets”即代表存活                 ->  alive == true
 ##   enemy_attack_interval                         ->  attack_interval（运行时调整后同步给各节点）
-##   _enemy_attack(from)                           ->  tick()（内部完成选目标 + 三集合清除）
+##   _enemy_attack(from)                           ->  tick()（内部完成选目标 + 清除污染/摧毁核心）
 ##   _nearest_polluted(from)                       ->  choose_target()
 ##   _check_turret_destruction()                   ->  check_contamination()（逐节点调用）
 ##   _draw() 充能环 turrets[p] / enemy_attack_interval -> charge_fraction()
@@ -43,7 +42,7 @@ extends Node2D
 ##          t.setup(p, enemy_attack_interval)
 ##          add_child(t)
 ##   2. 每帧（原 _process 第 6 步“敌方攻击”）对每个节点：
-##      if t.tick(delta, polluted, units, radial_polluted, directional_polluted):
+##      if t.tick(delta, polluted, units):
 ##          queue_redraw()
 ##   3. 每次蔓延后（原第 5 步“炮台摧毁 / 胜利判定”）逐节点：
 ##      if t.check_contamination(polluted): （若全部损毁则判胜）
@@ -105,8 +104,8 @@ func destroy() -> void:
 # ---------------------------------------------------------------------------
 ## 每帧推进攻击充能；到点时发动一次攻击：
 ##   - 若攻击范围（attack_range）内存在污染地块：清除离 coord 最近的一块
-##     （同时从 polluted / radial_polluted / directional_polluted 移除）；
-##     若该地块上有我方核心则一并摧毁；
+##     （统一 polluted；如传入了 radial_polluted / directional_polluted
+##     兼容集合也一并移除）；若该地块上有我方核心则一并摧毁；
 ##   - 若没有可攻击目标：本次空过，充能重新计时（与原 _enemy_attack() 一致）。
 ## 各污染集合与 units 以引用传入，直接在其中清除 —— 数据归属仍在主脚本。
 ## 返回是否真的发动了攻击（可用于触发重绘等）。
