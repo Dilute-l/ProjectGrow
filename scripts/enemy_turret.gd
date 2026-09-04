@@ -11,8 +11,9 @@ extends Node2D
 ## 【本节点负责】
 ##   - 单个炮台的状态：坐标 coord、存活 alive、攻击计时 attack_timer、
 ##     攻击间隔 attack_interval（可运行时调整）；
-##   - 攻击逻辑：按间隔计时，选择“离自己最近”的污染地块，清除它；
-##     若该地块上是我方核心则一并摧毁。与现版 hex_game.gd 一致：
+##   - 攻击逻辑：按间隔计时，在攻击范围（attack_range，立方体距离，默认 3 格）
+##     内选择“离自己最近”的污染地块，清除它；若该地块上是我方核心则一并摧毁。
+##     与现版 hex_game.gd 一致：
 ##     清除地块时会同时从 polluted / radial_polluted / directional_polluted
 ##     三套集合中移除；
 ##   - 损毁规则：污染蔓延到本炮台所在格 => 损毁（见 check_contamination()）。
@@ -54,6 +55,7 @@ extends Node2D
 # 常量
 # ---------------------------------------------------------------------------
 const ATTACK_INTERVAL_DEFAULT := 0.5   # 攻击间隔默认值（秒），与原 ENEMY_ATTACK_INTERVAL_DEFAULT 一致
+const ATTACK_RANGE_DEFAULT := 3        # 攻击范围默认值（六边形立方体距离，单位：格）
 const NO_TARGET := Vector2i(2147483647, 2147483647)  # “无目标”哨兵值
 
 # ---------------------------------------------------------------------------
@@ -73,6 +75,8 @@ var coord := Vector2i.ZERO
 var alive := true
 ## 攻击间隔（秒，可运行时调整；原 enemy_attack_interval）
 var attack_interval := ATTACK_INTERVAL_DEFAULT
+## 攻击范围（六边形立方体距离，单位：格；炮台只清除此范围内的污染地块）
+var attack_range := ATTACK_RANGE_DEFAULT
 ## 距下次攻击已累计的秒数（只应由 tick() 推进；原 turrets[coord] 的值）
 var attack_timer := 0.0
 
@@ -100,8 +104,9 @@ func destroy() -> void:
 # 每帧逻辑（攻击）
 # ---------------------------------------------------------------------------
 ## 每帧推进攻击充能；到点时发动一次攻击：
-##   - 若污染区非空：清除离 coord 最近的污染地块（同时从 polluted /
-##     radial_polluted / directional_polluted 移除）；若该地块上有我方核心则一并摧毁；
+##   - 若攻击范围（attack_range）内存在污染地块：清除离 coord 最近的一块
+##     （同时从 polluted / radial_polluted / directional_polluted 移除）；
+##     若该地块上有我方核心则一并摧毁；
 ##   - 若没有可攻击目标：本次空过，充能重新计时（与原 _enemy_attack() 一致）。
 ## 各污染集合与 units 以引用传入，直接在其中清除 —— 数据归属仍在主脚本。
 ## 返回是否真的发动了攻击（可用于触发重绘等）。
@@ -143,13 +148,16 @@ func check_contamination(polluted: Dictionary) -> bool:
 # ---------------------------------------------------------------------------
 # 攻击目标选择（扩展点：子类可覆写 choose_target() 以定制攻击规则）
 # ---------------------------------------------------------------------------
-## 选择离 coord 最近的一块污染地块；污染区为空时返回 NO_TARGET。
+## 选择离 coord 最近且处于攻击范围（立方体距离 <= attack_range）内的
+## 一块污染地块；污染区为空或范围内无污染时返回 NO_TARGET。
 ## 距离相同取先遍历到者（与原 _nearest_polluted() 一致）。
 func choose_target(polluted: Dictionary) -> Vector2i:
 	var best := NO_TARGET
 	var best_d := 1 << 30
 	for cell: Vector2i in polluted.keys():
 		var d := _cube_dist(cell, coord)
+		if d > attack_range:
+			continue  # 超出攻击范围
 		if d < best_d:
 			best_d = d
 			best = cell
