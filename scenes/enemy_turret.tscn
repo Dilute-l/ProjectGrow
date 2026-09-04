@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://cc18caq7lyw54"]
+
+[ext_resource type="Script" uid="uid://cmsghivs87o7o" path="res://scripts/enemy_turret.gd" id="1_tqkpp"]
+
+[node name="EnemyTurret" type="Node2D" unique_id=96848395]
+script = ExtResource("1_tqkpp")
+
+[node name="Visuals" type="Node2D" parent="." unique_id=127175139]

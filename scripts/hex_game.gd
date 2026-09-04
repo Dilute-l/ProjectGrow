@@ -66,7 +66,9 @@ var units: Dictionary = {}
 var polluted: Dictionary = {}               # 所有被污染地块（用于胜利判定与敌方攻击）
 var radial_polluted: Dictionary = {}        # 会向四周扩散的污染地块（径向核心产生）
 var directional_polluted: Dictionary = {}   # 沿方向扩散的污染地块：Vector2i -> 方向
-var turrets: Dictionary = {}                # Vector2i -> 距下次攻击的时间（秒）；存在即存活
+const TURRET_SCENE := preload("res://scenes/enemy_turret.tscn")  # 敌方炮台独立场景（模块化）
+var turret_map: Dictionary = {}            # Vector2i -> EnemyTurret 节点（存活/计时在节点内部）
+var turret_container: Node2D               # 敌方炮台场景实例容器
 var radial_spread_timer := 0.0
 var directional_spread_timer := 0.0
 var hover_cell := Vector2i(999999, 999999)
@@ -138,7 +140,7 @@ func _process(delta: float) -> void:
 		units.erase(cell)
 	# 2) 所有核心已结束：停止蔓延；若仍有存活炮台则失败
 	if units.is_empty():
-		if not turrets.is_empty():
+		if _alive_turret_count() > 0:
 			phase = Phase.LOST
 		_update_status()
 		queue_redraw()
@@ -162,12 +164,10 @@ func _process(delta: float) -> void:
 		queue_redraw()
 		return
 	# 6) 敌方攻击（每个存活炮台独立计时）
-	for tcell in turrets.keys():
-		turrets[tcell] = turrets[tcell] + delta
-		if turrets[tcell] >= enemy_attack_interval:
-			turrets[tcell] = 0.0
-			_enemy_attack(tcell)
-	if units.is_empty() and not turrets.is_empty():
+	for t in turret_map.values():
+		if t.tick(delta, polluted, units, radial_polluted, directional_polluted):
+			queue_redraw()
+	if units.is_empty() and _alive_turret_count() > 0:
 		phase = Phase.LOST
 	_update_status()
 	queue_redraw()
@@ -435,15 +435,16 @@ func _draw() -> void:
 	# 敌方炮台（可为多个）
 	for p in turret_positions:
 		var tc := hex_center(p)
-		var alive := mode == Mode.EDIT or turrets.has(p)
+		var t: EnemyTurret = turret_map.get(p)
+		var alive := mode == Mode.EDIT or (t != null and t.alive)
 		if alive:
 			draw_circle(tc, hex_size * 0.52, COL_TURRET)
 			draw_arc(tc, hex_size * 0.52, 0.0, TAU, 24, COL_TURRET_RING, 2.0)
 			var dir := Vector2(0.0, -1.0) * hex_size * 0.82
 			var perp := Vector2(hex_size * 0.22, 0.0)
 			draw_colored_polygon(PackedVector2Array([tc + dir, tc + perp, tc - perp]), COL_TURRET)
-			if phase == Phase.RUNNING and mode == Mode.PLAY:
-				var afrac := clampf(turrets[p] / enemy_attack_interval, 0.0, 1.0)
+			if phase == Phase.RUNNING and mode == Mode.PLAY and t != null:
+				var afrac := t.charge_fraction()
 				draw_arc(tc, hex_size * 0.66, -PI * 0.5, -PI * 0.5 + TAU * afrac, 32, COL_TURRET_RING, 2.5)
 		else:
 			draw_circle(tc, hex_size * 0.52, COL_TURRET_DEAD)
@@ -582,8 +583,8 @@ func _start() -> void:
 	radial_spread_timer = 0.0
 	directional_spread_timer = 0.0
 	awaiting_direction = false
-	for p in turrets.keys():
-		turrets[p] = 0.0
+	for t in turret_map.values():
+		t.reset()
 	start_button.disabled = true
 	_update_status()
 	queue_redraw()
@@ -594,9 +595,7 @@ func _reset() -> void:
 	polluted.clear()
 	radial_polluted.clear()
 	directional_polluted.clear()
-	turrets.clear()
-	for p in turret_positions:
-		turrets[p] = 0.0
+	_rebuild_turrets()
 	radial_spread_timer = 0.0
 	directional_spread_timer = 0.0
 	awaiting_direction = false
@@ -799,37 +798,34 @@ func _directional_spread() -> void:
 
 func _check_turret_destruction() -> void:
 	var destroyed := false
-	for cell in turrets.keys():
-		if polluted.has(cell):
-			turrets.erase(cell)
+	for t in turret_map.values():
+		if t.check_contamination(polluted):
 			destroyed = true
-	if destroyed and turrets.is_empty():
+	if destroyed and _alive_turret_count() == 0:
 		phase = Phase.WON
 
 # ---------------------------------------------------------------------------
-# 敌方攻击
+# 敌方炮台（逻辑已下放至 EnemyTurret 场景节点；此处负责实例化与统计）
 # ---------------------------------------------------------------------------
-func _enemy_attack(from: Vector2i) -> void:
-	var target = _nearest_polluted(from)
-	if target == null:
-		return
-	polluted.erase(target)
-	radial_polluted.erase(target)
-	directional_polluted.erase(target)
-	if units.has(target):
-		units.erase(target)  # 摧毁我方单位核心
-	queue_redraw()
+func _rebuild_turrets() -> void:
+	if turret_container != null and is_instance_valid(turret_container):
+		turret_container.queue_free()
+	turret_container = Node2D.new()
+	turret_container.name = "EnemyTurrets"
+	add_child(turret_container)
+	turret_map.clear()
+	for p in turret_positions:
+		var t: EnemyTurret = TURRET_SCENE.instantiate()
+		t.setup(p, enemy_attack_interval)
+		turret_container.add_child(t)
+		turret_map[p] = t
 
-func _nearest_polluted(from: Vector2i) -> Variant:
-	var best = null
-	var best_d := 1 << 30
-	for cell in polluted.keys():
-		var d := cube_dist(cell, from)
-		if d < best_d:
-			best_d = d
-			best = cell
-	return best
-
+func _alive_turret_count() -> int:
+	var n := 0
+	for t in turret_map.values():
+		if t.alive:
+			n += 1
+	return n
 # ---------------------------------------------------------------------------
 # HUD
 # ---------------------------------------------------------------------------
@@ -972,7 +968,7 @@ func _update_status() -> void:
 				var t: Dictionary = core_types[selected_core]
 				_set_status("部署阶段：当前核心「%s」，剩余可部署 %d 个（右下角选择核心类型）" % [t["name"], max_units - units.size()])
 		Phase.RUNNING:
-			_set_status("扩散中…… 已污染 %d/%d | 存活核心 %d | 存活炮台 %d" % [polluted.size(), total_hexes, units.size(), turrets.size()])
+			_set_status("扩散中…… 已污染 %d/%d | 存活核心 %d | 存活炮台 %d" % [polluted.size(), total_hexes, units.size(), _alive_turret_count()])
 		Phase.WON:
 			_set_status("胜利！所有敌方炮台都被污染损毁")
 		Phase.LOST:
@@ -1091,12 +1087,16 @@ func _close_console() -> void:
 func _console_apply() -> void:
 	max_units = int(round(sb_units.value))
 	enemy_attack_interval = sb_enemy.value
+	for t in turret_map.values():
+		t.attack_interval = enemy_attack_interval
 	_update_status()
 	queue_redraw()
 
 func _console_defaults() -> void:
 	max_units = MAX_UNITS_DEFAULT
 	enemy_attack_interval = ENEMY_ATTACK_INTERVAL_DEFAULT
+	for t in turret_map.values():
+		t.attack_interval = enemy_attack_interval
 	sb_units.value = max_units
 	sb_enemy.value = enemy_attack_interval
 	_update_status()
