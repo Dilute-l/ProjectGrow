@@ -51,6 +51,8 @@ var type_index := 0
 var config: Dictionary = {}
 ## 剩余持续时间（秒，由 advance() 递减）
 var remaining := 0.0
+## 本核心的部署时刻（战斗时间，秒；由接线方在 spawn 时写入，供限时类词条判断）
+var spawn_time := 0.0
 ## 定向模式的方向（轴向偏移）；其它模式保持 Vector2i.ZERO
 var direction := Vector2i.ZERO
 # 渲染上下文（由接线方在生成时与窗口/地图尺寸变化时同步）

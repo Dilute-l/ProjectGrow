@@ -62,7 +62,15 @@ const TURRET_TYPES := {
 	"basic": {"range": 3, "interval_mult": 1.0},   # 基础
 	"sniper": {"range": 4, "interval_mult": 1.8},  # 范围大一格、攻速更慢
 	"rapid": {"range": 2, "interval_mult": 0.6},   # 范围小一格、攻速更快
+	"beam": {"range": 4, "interval_mult": 2.5},    # 直线清除：范围4，攻击间隔长
 }
+
+# 穿过炮台的 3 条直线（每对相反方向构成一条直线），用于直线清除型炮台
+const LINES: Array = [
+	[Vector2i(1, 0), Vector2i(-1, 0)],
+	[Vector2i(0, 1), Vector2i(0, -1)],
+	[Vector2i(1, -1), Vector2i(-1, 1)],
+]
 
 # ---------------------------------------------------------------------------
 # 信号
@@ -89,6 +97,8 @@ var turret_type := "basic"
 var interval_mult := 1.0
 ## 距下次攻击已累计的秒数（只应由 tick() 推进；原 turrets[coord] 的值）
 var attack_timer := 0.0
+## 眩晕剩余秒数（>0 时停止攻击并冻结充能；由「清算反噬」类词条施加）
+var stun_timer := 0.0
 
 # ---------------------------------------------------------------------------
 # 初始化 / 重置
@@ -112,6 +122,7 @@ func set_base_interval(base: float) -> void:
 func reset() -> void:
 	alive = true
 	attack_timer = 0.0
+	stun_timer = 0.0
 
 ## 外部强制摧毁本炮台（未来扩展：被其它手段击杀等）
 func destroy() -> void:
@@ -129,21 +140,52 @@ func destroy() -> void:
 ##   - 若没有可攻击目标：本次空过，充能重新计时（与原 _enemy_attack() 一致）。
 ## 各污染集合与 units 以引用传入，直接在其中清除 —— 数据归属仍在主脚本。
 ## 返回是否真的发动了攻击（可用于触发重绘等）。
-func tick(delta: float, polluted: Dictionary, units: Dictionary, radial_polluted: Dictionary = {}, directional_polluted: Dictionary = {}) -> bool:
+func tick(delta: float, polluted: Dictionary, units: Dictionary, radial_polluted: Dictionary = {}, directional_polluted: Dictionary = {}, drop_effects = null, battle_time: float = 0.0) -> bool:
 	if not alive:
+		return false
+	if stun_timer > 0.0:
+		stun_timer -= delta  # 眩晕期间冻结充能（停止攻击）
 		return false
 	attack_timer += delta
 	if attack_timer < attack_interval:
 		return false
 	attack_timer = 0.0
+	if is_beam():
+		# 直线清除：清除一条“含最多污染地块”的直线上的所有地块
+		var line := choose_line_targets(polluted)
+		if line.is_empty():
+			return false
+		var cleared_any := false
+		for target in line:
+			var pl = polluted.get(target, null)
+			if pl == null:
+				continue
+			if drop_effects != null and not drop_effects.attempt_clear(pl, battle_time):
+				continue  # 被庇护挡住或只是扣除一次耐久，本次不清除
+			polluted.erase(target)
+			radial_polluted.erase(target)
+			directional_polluted.erase(target)
+			if units.has(target):
+				units.erase(target)  # 摧毁我方单位核心
+			if drop_effects != null:
+				stun_timer = maxf(stun_timer, drop_effects.stun_on_clear(pl))
+			cleared_any = true
+		if cleared_any:
+			attacked.emit(coord)
+		return cleared_any
 	var target := choose_target(polluted)
 	if target == NO_TARGET:
+		return false
+	var pl = polluted.get(target)
+	if drop_effects != null and not drop_effects.attempt_clear(pl, battle_time):
 		return false
 	polluted.erase(target)
 	radial_polluted.erase(target)
 	directional_polluted.erase(target)
 	if units.has(target):
 		units.erase(target)  # 摧毁我方单位核心
+	if drop_effects != null:
+		stun_timer = maxf(stun_timer, drop_effects.stun_on_clear(pl))
 	attacked.emit(target)
 	return true
 
@@ -180,6 +222,24 @@ func choose_target(polluted: Dictionary) -> Vector2i:
 		if d < best_d:
 			best_d = d
 			best = cell
+	return best
+
+## 是否为直线清除型炮台（beam）
+func is_beam() -> bool:
+	return turret_type == "beam"
+
+## 直线清除型：在 3 条直线中选“含最多污染地块”的一条，返回该直线上的所有污染地块
+func choose_line_targets(polluted: Dictionary) -> Array:
+	var best: Array = []
+	for line in LINES:
+		var tiles: Array = []
+		for d: Vector2i in line:
+			for k in range(1, attack_range + 1):
+				var cell: Vector2i = coord + d * k
+				if polluted.has(cell):
+					tiles.append(cell)
+		if tiles.size() > best.size():
+			best = tiles
 	return best
 
 # ---------------------------------------------------------------------------

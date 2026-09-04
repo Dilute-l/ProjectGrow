@@ -157,7 +157,7 @@ func update_status() -> void:
 			set_status("部署阶段：请先在右下角选择核心类型")
 		else:
 			var t: Dictionary = game.core_types[game.selected_core]
-			set_status("部署阶段：当前核心「%s」（消耗 %d 点费用）｜剩余部署费用 %d/%d（只能部署在最外围一圈）" % [t["name"], game.map_data.mode_deploy_cost(str(t["mode"])), game.deploy_points, PlayerCore.DEPLOY_COST_MAX])
+			set_status("部署阶段：当前核心「%s」（消耗 %d 点费用）｜剩余部署费用 %d/%d（只能部署在最外围一圈）" % [t["name"], game.drop_effects.deploy_cost(game.selected_core), game.deploy_points, PlayerCore.DEPLOY_COST_MAX])
 	elif game.phase == game.Phase.RUNNING:
 		if game.awaiting_direction:
 			set_status("定向核心：请点击相邻地块选择延伸方向（右键取消）")

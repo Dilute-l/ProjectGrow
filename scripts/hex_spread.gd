@@ -26,16 +26,28 @@ func spread_mode(mode_name: String, bm: CoreMode) -> void:
 			continue
 		for n: Vector2i in bm.spread_candidates(cell, pl):
 			if game.geometry.in_bounds(n) and not game.polluted.has(n) and not game.walls.has(n) and not newly.has(n):
-				newly[n] = pl
+				var np: Dictionary = pl.duplicate()
+				# 每个蔓延生成的地块单独掷「地块坚韧」耐久
+				np["hp"] = game.drop_effects.roll_tile_hp(str(np.get("origin_id", "")))
+				newly[n] = np
 	for c in newly:
 		pollute_with(c, newly[c])
+	# 蔓延分支：结算后按概率额外随机蔓延一格
+	game.drop_effects.extra_spread(mode_name)
 
 ## 核心到期爆发：一次性向候选格写入污染（蓄力类核心到期时调用）
-func burst_from(origin: Vector2i, candidates: Array, mode_name: String) -> void:
+func burst_from(origin: Vector2i, candidates: Array, mode_name: String, origin_id: String = "", origin_spawn_time: float = 0.0) -> void:
 	var newly: Dictionary = {}
 	for n: Vector2i in candidates:
 		if game.geometry.in_bounds(n) and not game.polluted.has(n) and not game.walls.has(n) and not newly.has(n):
-			newly[n] = {"mode": mode_name, "dir": Vector2i.ZERO, "source": origin}
+			newly[n] = {
+				"mode": mode_name,
+				"dir": Vector2i.ZERO,
+				"source": origin,
+				"origin_id": origin_id,
+				"origin_spawn_time": origin_spawn_time,
+				"hp": game.drop_effects.roll_tile_hp(origin_id),
+			}
 	for c in newly:
 		pollute_with(c, newly[c])
 

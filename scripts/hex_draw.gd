@@ -77,6 +77,8 @@ func _turret_body_color(type_name: String) -> Color:
 			return Color("ffa726")   # 橙色
 		"rapid":
 			return Color("26c6da")   # 青色
+		"beam":
+			return Color("ab47bc")   # 紫色
 		_:
 			return game.COL_TURRET   # 红色（基础）
 

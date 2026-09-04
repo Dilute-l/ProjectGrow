@@ -50,6 +50,8 @@ var hex_size := HEX_SIZE_DEFAULT
 var enemy_attack_interval := ENEMY_ATTACK_INTERVAL_DEFAULT
 # 部署费用（玩家整体资源；初始值与上限定义在 PlayerCore）
 var deploy_points := PlayerCore.DEPLOY_COST_START
+# 战斗时间（秒）：RUNNING 阶段累积，用于「部署后前 N 秒」类掉落词条
+var battle_time := 0.0
 
 # 地图数据（从文件读取 / 编辑）
 var map_radius := 0                            # 六边形地图半径（中心向外层数）
@@ -161,6 +163,7 @@ var spread: HexSpread
 var turrets: HexTurrets
 var hud: HexHud
 var console: HexConsole
+var drop_effects: DropEffects
 
 func _create_modules() -> void:
 	map_data = HexMap.new(self)
@@ -173,6 +176,7 @@ func _create_modules() -> void:
 	turrets = HexTurrets.new(self)
 	hud = HexHud.new(self)
 	console = HexConsole.new(self)
+	drop_effects = DropEffects.new(self)
 
 # ---------------------------------------------------------------------------
 # 生命周期
@@ -211,6 +215,7 @@ func _process(delta: float) -> void:
 	if phase != Phase.RUNNING:
 		return
 	delta *= game_speed  # 倍速
+	battle_time += delta
 	# 1) 核心倒计时（到期后核心消失，但其污染地块保留）
 	var expired: Array = []
 	for cell in units.keys():
@@ -222,7 +227,7 @@ func _process(delta: float) -> void:
 		if n != null:
 			var burst := n.burst_cells()
 			if not burst.is_empty():
-				spread.burst_from(cell, burst, n.mode())
+				spread.burst_from(cell, burst, n.mode(), str(n.config.get("id", "")), n.spawn_time)
 		deploy.remove_core(cell)
 	# 2) 所有核心已结束：停止蔓延；若仍有存活炮台则失败
 	if units.is_empty():
@@ -239,7 +244,7 @@ func _process(delta: float) -> void:
 		var bm := CoreMode.for_mode(m)
 		if bm == null:
 			continue
-		var iv: float = mode_intervals.get(m, bm.interval_fallback())
+		var iv: float = mode_intervals.get(m, bm.interval_fallback()) * drop_effects.spread_interval_multiplier(m)
 		mode_spread_timers[m] = mode_spread_timers.get(m, 0.0) + delta
 		if mode_spread_timers[m] >= iv:
 			mode_spread_timers[m] = 0.0
@@ -255,7 +260,7 @@ func _process(delta: float) -> void:
 	# 6) 敌方攻击（每个存活炮台独立计时）
 	var attacked := false
 	for t in turret_map.values():
-		if t.tick(delta, polluted, units):
+		if t.tick(delta, polluted, units, {}, {}, drop_effects, battle_time):
 			attacked = true
 			queue_redraw()
 	if attacked and tutorial_gate == "attack":

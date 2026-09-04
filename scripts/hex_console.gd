@@ -55,6 +55,9 @@ func build_console() -> void:
 	vbox.add_child(section_label("—— 敌方 ——"))
 	game.sb_enemy = add_spin_row(vbox, "攻击间隔（秒）", 0.1, 30.0, 0.1, game.enemy_attack_interval, false)
 
+	# 掉落效果（仅此处可授予，无任何掉落 / 获取途径）
+	game.drop_effects.add_console_section(vbox)
+
 	var hint := Label.new()
 	hint.text = "核心的持续时间、扩散间隔、颜色等请在 cores.json 中修改。\n修改后点击“应用”生效；按 R 或 Esc 关闭。"
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -114,6 +117,7 @@ func add_spin_row(parent: Control, label_text: String, mn: float, mx: float, ste
 
 func open() -> void:
 	game.sb_enemy.value = game.enemy_attack_interval
+	game.drop_effects.refresh_grant_ui()
 	game.console_open = true
 	game.console_layer.visible = true
 	game.queue_redraw()

@@ -14,18 +14,29 @@ var game
 func _init(g) -> void:
 	game = g
 
-func spawn_core(cell: Vector2i, type_idx: int, dir: Vector2i) -> void:
-	var cfg: Dictionary = game.core_types[type_idx]
-	var cost: int = game.map_data.mode_deploy_cost(str(cfg.get("mode", "radial")))
-	if game.deploy_points < cost:
-		game.hud.set_status("部署费用不足：需要 %d 点，剩余 %d 点" % [cost, game.deploy_points])
-		return
-	game.deploy_points -= cost
+func spawn_core(cell: Vector2i, type_idx: int, dir: Vector2i, free: bool = false) -> void:
+	var core_id: String = game.drop_effects.core_id_of_type(type_idx)
+	var cost: int = game.drop_effects.deploy_cost(type_idx)
+	if not free:
+		if game.deploy_points < cost:
+			game.hud.set_status("部署费用不足：需要 %d 点，剩余 %d 点" % [cost, game.deploy_points])
+			return
+		game.deploy_points -= cost
+	var src_cfg: Dictionary = game.core_types[type_idx]
+	# 复制一份配置快照，避免「核心长寿」的生存时间修改污染共享的 core_types 数据
+	var cfg: Dictionary = src_cfg.duplicate()
+	cfg["duration"] = float(src_cfg.get("duration", 15.0)) * game.drop_effects.survival_multiplier(core_id)
 	var n: PlayerCore = CORE_SCENE.instantiate()
 	n.setup(cell, type_idx, cfg, dir, game.hex_size, game.map_offset)
+	n.spawn_time = game.battle_time
 	game.core_container.add_child(n)
 	game.units[cell] = n
-	game.spread.pollute_with(cell, n.payload())
+	var pl: Dictionary = n.payload()
+	pl["origin_id"] = core_id
+	pl["origin_spawn_time"] = n.spawn_time
+	pl["hp"] = 1
+	game.spread.pollute_with(cell, pl)
+	game.drop_effects.on_core_deployed(n, cell)
 	game.hud.update_cost_ui()
 	if game.tutorial_gate == "deploy":
 		game.guide.on_deployed()
@@ -52,7 +63,7 @@ func try_place(cell: Vector2i) -> void:
 	if game.units.has(cell):
 		return
 	var t: Dictionary = game.core_types[game.selected_core]
-	var cost: int = game.map_data.mode_deploy_cost(str(t["mode"]))
+	var cost: int = game.drop_effects.deploy_cost(game.selected_core)
 	if game.deploy_points < cost:
 		game.hud.set_status("部署费用不足：需要 %d 点，剩余 %d 点" % [cost, game.deploy_points])
 		return
@@ -78,7 +89,7 @@ func finalize_directional(dir_cell: Vector2i) -> void:
 
 func try_remove(cell: Vector2i) -> void:
 	if game.units.has(cell):
-		var refund: int = game.map_data.mode_deploy_cost((game.units[cell] as PlayerCore).mode())
+		var refund: int = game.drop_effects.deploy_cost((game.units[cell] as PlayerCore).type_index)
 		remove_core(cell)
 		game.polluted.erase(cell)
 		game.deploy_points = mini(game.deploy_points + refund, PlayerCore.DEPLOY_COST_MAX)
@@ -95,6 +106,8 @@ func start() -> void:
 	game.phase = game.Phase.RUNNING
 	game.mode_spread_timers.clear()
 	game.awaiting_direction = false
+	game.battle_time = 0.0
+	game.drop_effects.on_battle_start()
 	for t in game.turret_map.values():
 		t.reset()
 	game.start_button.disabled = true
@@ -104,6 +117,7 @@ func start() -> void:
 func reset() -> void:
 	game.phase = game.Phase.DEPLOY
 	game.deploy_points = PlayerCore.DEPLOY_COST_START
+	game.battle_time = 0.0
 	game.units.clear()
 	game.polluted.clear()
 	if game.core_container != null and is_instance_valid(game.core_container):
