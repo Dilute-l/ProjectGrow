@@ -1,6 +1,11 @@
 [gd_scene format=3 uid="uid://buq8v4r6jbohc"]
 
 [ext_resource type="Script" uid="uid://cane2mmnyf14f" path="res://scripts/hex_game.gd" id="1_5p4vs"]
+[ext_resource type="Script" uid="uid://co6p1ibxykhye" path="res://scripts/texture_overlay.gd" id="2_s8scs"]
 
 [node name="Main" type="Node2D" unique_id=116855881]
 script = ExtResource("1_5p4vs")
+
+[node name="GroundOverlay" type="Node2D" parent="." unique_id=353896957]
+script = ExtResource("2_s8scs")
+draw_offset = Vector2(-26.7, -31)

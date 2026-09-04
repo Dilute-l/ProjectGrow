@@ -31,7 +31,7 @@ func draw() -> void:
 		var s: float = game.hex_size * 0.42
 		var pts := PackedVector2Array()
 		for i in 6:
-			var a := deg_to_rad(60.0 * i)
+			var a := deg_to_rad(60.0 * i + 30.0)
 			pts.append(c + Vector2(cos(a), sin(a)) * s)
 		game.draw_colored_polygon(pts, game.COL_WALL_EDGE)
 		var closed := pts.duplicate()
@@ -96,7 +96,7 @@ func tile_color(cell: Vector2i) -> Color:
 func draw_hex(center: Vector2, size: float, col: Color) -> void:
 	var pts := PackedVector2Array()
 	for i in 6:
-		var a := deg_to_rad(60.0 * i)
+		var a := deg_to_rad(60.0 * i + 30.0)
 		pts.append(center + Vector2(cos(a), sin(a)) * size)
 	game.draw_colored_polygon(pts, col)
 	var closed := pts.duplicate()

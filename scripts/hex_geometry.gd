@@ -27,25 +27,25 @@ func fit_hex_size() -> void:
 	var margin: float = 60.0
 	var avail_w: float = vs.x - margin * 2.0
 	var avail_h: float = vs.y - margin * 2.0 - 90.0
-	var by_w: float = avail_w / (3.0 * game.map_radius + 2.0)
-	var by_h: float = avail_h / (sqrt(3.0) * (2.0 * game.map_radius + 1.0))
+	var by_w: float = avail_w / (sqrt(3.0) * (2.0 * game.map_radius + 1.0))
+	var by_h: float = avail_h / (3.0 * game.map_radius + 2.0)
 	game.hex_size = clampf(minf(game.HEX_SIZE_DEFAULT, minf(by_w, by_h)), 8.0, game.HEX_SIZE_DEFAULT)
 
-## 轴向坐标（点尖顶）转像素（相对原点）
+## 轴向坐标（尖顶朝上 / pointy-top）转像素（相对原点）
 static func axial_to_pixel(q: float, r: float, size: float) -> Vector2:
-	return Vector2(size * 1.5 * q, size * sqrt(3.0) * (r + q * 0.5))
+	return Vector2(size * sqrt(3.0) * (q + r * 0.5), size * 1.5 * r)
 
 ## 某地块中心的屏幕坐标
 func hex_center(cell: Vector2i) -> Vector2:
 	return game.map_offset + axial_to_pixel(cell.x, cell.y, game.hex_size)
 
-## 屏幕坐标反解为轴向坐标（四舍五入到最近的六边形）
+## 屏幕坐标反解为轴向坐标（尖顶布局，四舍五入到最近的六边形）
 func pixel_to_hex(p: Vector2) -> Vector2i:
 	var lp: Vector2 = p - game.map_offset
-	var qf: float = (2.0 / 3.0 * lp.x) / game.hex_size
-	var rf: float = (-1.0 / 3.0 * lp.x + sqrt(3.0) / 3.0 * lp.y) / game.hex_size
-	var xf: float = qf
-	var zf: float = rf
+	var px: float = lp.x / game.hex_size
+	var py: float = lp.y / game.hex_size
+	var xf: float = sqrt(3.0) / 3.0 * px - 1.0 / 3.0 * py
+	var zf: float = 2.0 / 3.0 * py
 	var yf: float = -xf - zf
 	var rx: int = roundi(xf)
 	var ry: int = roundi(yf)
