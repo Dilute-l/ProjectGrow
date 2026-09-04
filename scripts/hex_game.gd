@@ -22,6 +22,7 @@ const CORES_PATH := "res://maps/cores.json"   # 核心数据文件
 const HEX_SIZE_DEFAULT := 26.0              # 六边形中心到顶点的距离（像素，默认）
 const MAX_UNITS_DEFAULT := 4                # 最大部署数量（默认）
 const ENEMY_ATTACK_INTERVAL_DEFAULT := 0.5  # 敌方攻击间隔（秒，默认）
+const TURRET_ATTACK_RANGE := 3              # 炮台攻击范围（格），用于范围高亮；与 enemy_turret.gd 默认一致
 
 # 运行时数值（可在控制台修改）
 var hex_size := HEX_SIZE_DEFAULT
@@ -395,6 +396,10 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), COL_BG)
 	for cell in all_cells():
 		draw_hex(hex_center(cell), hex_size - 1.2, _tile_color(cell))
+	# 炮台攻击范围高亮
+	for cell in all_cells():
+		if not walls.has(cell) and not turret_positions.has(cell) and _in_any_turret_range(cell):
+			draw_hex(hex_center(cell), hex_size - 1.2, Color(1.0, 0.35, 0.35, 0.16))
 	# 墙（内部实心块 + 边框）
 	for cell in walls:
 		var c := hex_center(cell)
@@ -826,6 +831,17 @@ func _alive_turret_count() -> int:
 		if t.alive:
 			n += 1
 	return n
+
+func _in_any_turret_range(cell: Vector2i) -> bool:
+	if mode == Mode.EDIT:
+		for p in turret_positions:
+			if cube_dist(cell, p) <= TURRET_ATTACK_RANGE:
+				return true
+	else:
+		for t in turret_map.values():
+			if t.alive and cube_dist(cell, t.coord) <= t.attack_range:
+				return true
+	return false
 # ---------------------------------------------------------------------------
 # HUD
 # ---------------------------------------------------------------------------
