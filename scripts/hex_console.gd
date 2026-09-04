@@ -20,6 +20,11 @@ func build_console() -> void:
 	var dim := ColorRect.new()
 	dim.color = Color(0.0, 0.0, 0.0, 0.55)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# 让遮罩在任意缩放比例下都铺满屏幕（向外扩展，避免缩放后留边）
+	dim.offset_left = -5000.0
+	dim.offset_top = -5000.0
+	dim.offset_right = 5000.0
+	dim.offset_bottom = 5000.0
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	game.console_layer.add_child(dim)
 
@@ -121,14 +126,14 @@ func close() -> void:
 func apply() -> void:
 	game.enemy_attack_interval = game.sb_enemy.value
 	for t in game.turret_map.values():
-		t.attack_interval = game.enemy_attack_interval
+		t.set_base_interval(game.enemy_attack_interval)
 	game.hud.update_status()
 	game.queue_redraw()
 
 func defaults() -> void:
 	game.enemy_attack_interval = game.ENEMY_ATTACK_INTERVAL_DEFAULT
 	for t in game.turret_map.values():
-		t.attack_interval = game.enemy_attack_interval
+		t.set_base_interval(game.enemy_attack_interval)
 	game.sb_enemy.value = game.enemy_attack_interval
 	game.hud.update_status()
 	game.queue_redraw()

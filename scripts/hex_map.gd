@@ -18,8 +18,8 @@ func _init(g) -> void:
 # ---------------------------------------------------------------------------
 func load_map() -> void:
 	var loaded := false
-	if FileAccess.file_exists(game.MAP_PATH):
-		var f := FileAccess.open(game.MAP_PATH, FileAccess.READ)
+	if FileAccess.file_exists(game.LEVEL_PATHS[game.level_index]):
+		var f := FileAccess.open(game.LEVEL_PATHS[game.level_index], FileAccess.READ)
 		if f != null:
 			var text := f.get_as_text()
 			f.close()
@@ -39,15 +39,20 @@ func apply_map_data(data: Dictionary) -> void:
 		game.map_radius = 5
 	game.walls.clear()
 	game.turret_positions.clear()
+	game.turret_types.clear()
 	var t = data.get("turrets", null)
 	if t is Array:
 		for entry in t:
 			if entry is Dictionary:
-				game.turret_positions.append(Vector2i(int(entry.get("q", 0)), int(entry.get("r", 0))))
+				var pos := Vector2i(int(entry.get("q", 0)), int(entry.get("r", 0)))
+				game.turret_positions.append(pos)
+				game.turret_types[pos] = str(entry.get("type", "basic"))
 	else:
 		var single = data.get("turret", null)
 		if single is Dictionary:
-			game.turret_positions.append(Vector2i(int(single.get("q", 0)), int(single.get("r", 0))))
+			var pos := Vector2i(int(single.get("q", 0)), int(single.get("r", 0)))
+			game.turret_positions.append(pos)
+			game.turret_types[pos] = str(single.get("type", "basic"))
 	var w = data.get("walls", [])
 	if w is Array:
 		for entry in w:
@@ -64,6 +69,8 @@ func prune_map() -> void:
 	for p in game.turret_positions:
 		if game.geometry.in_bounds(p) and not game.walls.has(p):
 			valid.append(p)
+		else:
+			game.turret_types.erase(p)
 	game.turret_positions = valid
 
 # ---------------------------------------------------------------------------
@@ -72,7 +79,7 @@ func prune_map() -> void:
 func map_to_dict() -> Dictionary:
 	var turrets_arr: Array = []
 	for p in game.turret_positions:
-		turrets_arr.append({"q": p.x, "r": p.y})
+		turrets_arr.append({"q": p.x, "r": p.y, "type": str(game.turret_types.get(p, "basic"))})
 	var walls_arr: Array = []
 	for cell in game.walls:
 		walls_arr.append({"q": cell.x, "r": cell.y})
@@ -154,6 +161,7 @@ func core_color(t: Dictionary) -> Color:
 func register_core_modes() -> void:
 	CoreMode.register("radial", RadialCoreMode.new())
 	CoreMode.register("directional", DirectionalCoreMode.new())
+	CoreMode.register("charge", ChargeCoreMode.new())
 
 ## 取模式行为；未注册的模式按径向兜底并告警
 func behavior_for_mode(mode_name: String) -> CoreMode:

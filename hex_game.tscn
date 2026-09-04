@@ -8,4 +8,3 @@ script = ExtResource("1_5p4vs")
 
 [node name="GroundOverlay" type="Node2D" parent="." unique_id=353896957]
 script = ExtResource("2_s8scs")
-draw_offset = Vector2(-26.7, -31)

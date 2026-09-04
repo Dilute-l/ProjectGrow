@@ -57,6 +57,13 @@ const ATTACK_INTERVAL_DEFAULT := 0.5   # 攻击间隔默认值（秒），与原
 const ATTACK_RANGE_DEFAULT := 3        # 攻击范围默认值（六边形立方体距离，单位：格）
 const NO_TARGET := Vector2i(2147483647, 2147483647)  # “无目标”哨兵值
 
+# 敌方炮台类型：名称 -> {range(攻击范围，格), interval_mult(攻速倍率，相对基础间隔)}
+const TURRET_TYPES := {
+	"basic": {"range": 3, "interval_mult": 1.0},   # 基础
+	"sniper": {"range": 4, "interval_mult": 1.8},  # 范围大一格、攻速更慢
+	"rapid": {"range": 2, "interval_mult": 0.6},   # 范围小一格、攻速更快
+}
+
 # ---------------------------------------------------------------------------
 # 信号
 # ---------------------------------------------------------------------------
@@ -76,17 +83,30 @@ var alive := true
 var attack_interval := ATTACK_INTERVAL_DEFAULT
 ## 攻击范围（六边形立方体距离，单位：格；炮台只清除此范围内的污染地块）
 var attack_range := ATTACK_RANGE_DEFAULT
+## 炮台类型名（basic / sniper / rapid）
+var turret_type := "basic"
+## 攻速倍率（相对基础间隔；由类型决定）
+var interval_mult := 1.0
 ## 距下次攻击已累计的秒数（只应由 tick() 推进；原 turrets[coord] 的值）
 var attack_timer := 0.0
 
 # ---------------------------------------------------------------------------
 # 初始化 / 重置
 # ---------------------------------------------------------------------------
-## 初始化本炮台并复位：放置在 cell，攻击间隔为 interval
-func setup(cell: Vector2i, interval: float = ATTACK_INTERVAL_DEFAULT) -> void:
+## 初始化本炮台并复位：放置在 cell，类型为 type_name，基础攻击间隔为 base_interval。
+## 实际攻击间隔 = base_interval × 类型攻速倍率。
+func setup(cell: Vector2i, type_name: String = "basic", base_interval: float = ATTACK_INTERVAL_DEFAULT) -> void:
 	coord = cell
-	attack_interval = interval
+	turret_type = type_name
+	var stats: Dictionary = TURRET_TYPES.get(type_name, TURRET_TYPES["basic"])
+	attack_range = int(stats["range"])
+	interval_mult = float(stats["interval_mult"])
+	set_base_interval(base_interval)
 	reset()
+
+## 设置基础攻击间隔，并按类型攻速倍率换算实际间隔
+func set_base_interval(base: float) -> void:
+	attack_interval = base * interval_mult
 
 ## 复位为“存活、未充能”状态（对应关卡重置 / 开始时重建 turrets 字典并清零计时）
 func reset() -> void:

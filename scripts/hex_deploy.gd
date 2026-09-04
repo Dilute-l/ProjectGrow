@@ -22,7 +22,7 @@ func spawn_core(cell: Vector2i, type_idx: int, dir: Vector2i) -> void:
 		return
 	game.deploy_points -= cost
 	var n: PlayerCore = CORE_SCENE.instantiate()
-	n.setup(cell, type_idx, cfg, dir)
+	n.setup(cell, type_idx, cfg, dir, game.hex_size, game.map_offset)
 	game.core_container.add_child(n)
 	game.units[cell] = n
 	game.spread.pollute_with(cell, n.payload())

@@ -30,6 +30,15 @@ func spread_mode(mode_name: String, bm: CoreMode) -> void:
 	for c in newly:
 		pollute_with(c, newly[c])
 
+## 核心到期爆发：一次性向候选格写入污染（蓄力类核心到期时调用）
+func burst_from(origin: Vector2i, candidates: Array, mode_name: String) -> void:
+	var newly: Dictionary = {}
+	for n: Vector2i in candidates:
+		if game.geometry.in_bounds(n) and not game.polluted.has(n) and not game.walls.has(n) and not newly.has(n):
+			newly[n] = {"mode": mode_name, "dir": Vector2i.ZERO, "source": origin}
+	for c in newly:
+		pollute_with(c, newly[c])
+
 ## 敌方攻击清除目标地块后，units 中对应核心已被 erase；此函数释放残留的场景实例
 func free_orphan_cores() -> void:
 	if game.core_container == null or not is_instance_valid(game.core_container):

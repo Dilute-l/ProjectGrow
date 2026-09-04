@@ -24,6 +24,7 @@ func play() -> void:
 	game.tutorial_node.core_selector_highlight_requested.connect(on_highlight)
 	game.tutorial_node.deploy_wait_started.connect(on_deploy_wait)
 	game.tutorial_node.attack_wait_started.connect(on_attack_wait)
+	game._update_ui_scale()
 	game.tutorial_node.start()
 
 func on_finished() -> void:
@@ -90,9 +91,7 @@ func update_spotlight() -> void:
 		return
 	match game.tutorial_spotlight:
 		"core":
-			if game.core_selector_panel != null:
-				var r := Rect2(game.core_selector_panel.global_position, game.core_selector_panel.size).grow(14.0)
-				game.tutorial_node.set_spotlight(r)
+			game.tutorial_node.set_spotlight(game.core_selector_screen_rect())
 		"map":
 			game.tutorial_node.set_spotlight(game.geometry.map_spotlight_rect())
 		_:

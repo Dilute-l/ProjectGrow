@@ -4,5 +4,3 @@
 
 [node name="PlayerCore" type="Node2D" unique_id=1864126972]
 script = ExtResource("1_d8oo1")
-
-[node name="Visuals" type="Node2D" parent="." unique_id=1857611218]

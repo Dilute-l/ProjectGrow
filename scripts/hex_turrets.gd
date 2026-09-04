@@ -24,7 +24,8 @@ func rebuild() -> void:
 	game.turret_map.clear()
 	for p in game.turret_positions:
 		var t: EnemyTurret = TURRET_SCENE.instantiate()
-		t.setup(p, game.enemy_attack_interval)
+		var type_name: String = str(game.turret_types.get(p, "basic"))
+		t.setup(p, type_name, game.enemy_attack_interval)
 		game.turret_container.add_child(t)
 		game.turret_map[p] = t
 
@@ -47,3 +48,17 @@ func in_any_range(cell: Vector2i) -> bool:
 			if t.alive and game.geometry.cube_dist(cell, t.coord) <= t.attack_range:
 				return true
 	return false
+
+## 返回覆盖该地块的炮台类型名（多个时返回先遍历到者）；无覆盖返回空字符串
+func covering_type(cell: Vector2i) -> String:
+	if game.mode == game.Mode.EDIT:
+		for p in game.turret_positions:
+			var type_name: String = str(game.turret_types.get(p, "basic"))
+			var stats: Dictionary = EnemyTurret.TURRET_TYPES.get(type_name, EnemyTurret.TURRET_TYPES["basic"])
+			if game.geometry.cube_dist(cell, p) <= int(stats["range"]):
+				return type_name
+	else:
+		for t in game.turret_map.values():
+			if t.alive and game.geometry.cube_dist(cell, t.coord) <= t.attack_range:
+				return t.turret_type
+	return ""

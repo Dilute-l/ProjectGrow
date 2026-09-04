@@ -11,9 +11,10 @@ extends RefCounted
 ##   2) 在 hex_game.gd 的 _register_core_modes() 里注册一行；
 ##   3) 在 cores.json 加一条 {"id","name","mode":新模式名,...}。
 ##
-## 内置两种模式（由 hex_game.gd 在 _ready 时注册）：
+## 内置三种模式（由 hex_game.gd 在 _ready 时注册）：
 ##   - radial       径向：污染地块每隔一段时间向四周所有相邻地块扩散
 ##   - directional  定向：污染地块沿部署时选择的方向单向扩散
+##   - charge       蓄力：存活期间不扩散，到期后一次性向周围两格爆发
 
 # ---------------------------------------------------------------------------
 # 注册表（静态）
@@ -56,6 +57,10 @@ func make_payload(dir: Vector2i = Vector2i.ZERO) -> Dictionary:
 ## 只负责“扩散形状/方向”，由主脚本统一做越界、墙、已污染过滤。
 ## 例：radial 返回 6 个邻居；directional 返回 cell + dir 一格。
 func spread_candidates(cell: Vector2i, payload: Dictionary) -> Array[Vector2i]:
+	return []
+
+## 核心到期时一次性爆发的候选格（默认无；蓄力类核心覆写，用于“存活结束后爆发”）
+func burst_candidates(_cell: Vector2i) -> Array[Vector2i]:
 	return []
 
 ## 当 cores.json 未给出该模式的扩散间隔时的默认值（秒）

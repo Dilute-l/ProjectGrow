@@ -15,6 +15,7 @@ func build_hud() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 10
 	game.add_child(layer)
+	game.hud_layer = layer
 
 	var panel := PanelContainer.new()
 	panel.position = Vector2(16, 12)
@@ -158,7 +159,10 @@ func update_status() -> void:
 			var t: Dictionary = game.core_types[game.selected_core]
 			set_status("部署阶段：当前核心「%s」（消耗 %d 点费用）｜剩余部署费用 %d/%d（只能部署在最外围一圈）" % [t["name"], game.map_data.mode_deploy_cost(str(t["mode"])), game.deploy_points, PlayerCore.DEPLOY_COST_MAX])
 	elif game.phase == game.Phase.RUNNING:
-		set_status("扩散中…… 已污染 %d/%d | 存活核心 %d | 存活炮台 %d" % [game.polluted.size(), game.total_hexes, game.units.size(), game.turrets.alive_count()])
+		if game.awaiting_direction:
+			set_status("定向核心：请点击相邻地块选择延伸方向（右键取消）")
+		else:
+			set_status("扩散中…… 已污染 %d/%d | 存活核心 %d | 存活炮台 %d（仍可在外围继续部署）" % [game.polluted.size(), game.total_hexes, game.units.size(), game.turrets.alive_count()])
 	elif game.phase == game.Phase.WON:
 		set_status("胜利！所有敌方炮台都被污染损毁")
 	elif game.phase == game.Phase.LOST:

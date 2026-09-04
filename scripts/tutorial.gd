@@ -25,15 +25,16 @@ class SpotlightDim:
 	var dim_color := Color(0.0, 0.0, 0.0, 0.55)
 
 	func _draw() -> void:
-		if not show_hole:
-			draw_rect(Rect2(Vector2.ZERO, size), dim_color)
-			return
-		var s := size
+		# 遮罩画得足够大，保证教程层被缩放后仍能覆盖全屏
+		var big := 100000.0
 		var h := hole
-		draw_rect(Rect2(0, 0, s.x, h.position.y), dim_color)  # 上
-		draw_rect(Rect2(0, h.position.y + h.size.y, s.x, s.y - h.position.y - h.size.y), dim_color)  # 下
-		draw_rect(Rect2(0, h.position.y, h.position.x, h.size.y), dim_color)  # 左
-		draw_rect(Rect2(h.position.x + h.size.x, h.position.y, s.x - h.position.x - h.size.x, h.size.y), dim_color)  # 右
+		if not show_hole:
+			draw_rect(Rect2(-big, -big, 2.0 * big, 2.0 * big), dim_color)
+			return
+		draw_rect(Rect2(-big, -big, 2.0 * big, h.position.y + big), dim_color)  # 上
+		draw_rect(Rect2(-big, h.position.y + h.size.y, 2.0 * big, big - h.position.y - h.size.y), dim_color)  # 下
+		draw_rect(Rect2(-big, h.position.y, h.position.x + big, h.size.y), dim_color)  # 左
+		draw_rect(Rect2(h.position.x + h.size.x, h.position.y, big - h.position.x - h.size.x, h.size.y), dim_color)  # 右
 		draw_rect(h.grow(3.0), Color(1.0, 0.85, 0.2, 0.9), false, 3.0)  # 洞的边框
 
 var speaker_name := ""
@@ -141,9 +142,12 @@ func _build_ui() -> void:
 
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM, Control.PRESET_MODE_MINSIZE, 24)
 
-# 设置聚光灯高亮区域（矩形，屏幕坐标）
+# 设置聚光灯高亮区域（矩形，屏幕坐标）。
+# 教程层可能被缩放，因此把屏幕坐标换算回层内坐标，保证挖洞位置正确。
 func set_spotlight(rect: Rect2) -> void:
-	spotlight_dim.hole = rect
+	var s := scale.x
+	var off := offset
+	spotlight_dim.hole = Rect2((rect.position - off) / s, rect.size / s)
 	spotlight_dim.show_hole = true
 	spotlight_dim.queue_redraw()
 

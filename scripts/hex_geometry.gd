@@ -13,6 +13,11 @@ extends RefCounted
 
 var game  # 主脚本（hex_game.gd 的 Node2D 实例）；无类型以保持松耦合
 
+## 地图六边形尺寸的上下限（像素）。下限防止过小看不清；上限放宽到足够大，
+## 使地图能随窗口变大而放大、随窗口变小而缩小。
+const MIN_HEX_SIZE := 8.0
+const MAX_HEX_SIZE := 200.0
+
 func _init(g) -> void:
 	game = g
 
@@ -21,7 +26,8 @@ func recenter() -> void:
 	var vs: Vector2 = game.get_viewport_rect().size
 	game.map_offset = Vector2(vs.x * 0.5, vs.y * 0.5 + 50.0)
 
-## 依据视口尺寸与地图半径，自适应六边形尺寸（不超过默认值）
+## 依据视口尺寸与地图半径，自适应六边形尺寸，使地图随窗口缩放自动缩放。
+## 地图整体始终完整落在视口内（留出边距）：窗口变大则地图放大，窗口变小则缩小。
 func fit_hex_size() -> void:
 	var vs: Vector2 = game.get_viewport_rect().size
 	var margin: float = 60.0
@@ -29,7 +35,7 @@ func fit_hex_size() -> void:
 	var avail_h: float = vs.y - margin * 2.0 - 90.0
 	var by_w: float = avail_w / (sqrt(3.0) * (2.0 * game.map_radius + 1.0))
 	var by_h: float = avail_h / (3.0 * game.map_radius + 2.0)
-	game.hex_size = clampf(minf(game.HEX_SIZE_DEFAULT, minf(by_w, by_h)), 8.0, game.HEX_SIZE_DEFAULT)
+	game.hex_size = clampf(minf(by_w, by_h), MIN_HEX_SIZE, MAX_HEX_SIZE)
 
 ## 轴向坐标（尖顶朝上 / pointy-top）转像素（相对原点）
 static func axial_to_pixel(q: float, r: float, size: float) -> Vector2:
@@ -92,6 +98,6 @@ func is_edge(cell: Vector2i) -> bool:
 
 ## 教程聚光灯覆盖的地图外接矩形
 func map_spotlight_rect() -> Rect2:
-	var w: float = game.hex_size * (3.0 * game.map_radius + 2.0)
-	var h: float = game.hex_size * (sqrt(3.0) * (2.0 * game.map_radius + 1.0))
+	var w: float = game.hex_size * (sqrt(3.0) * (2.0 * game.map_radius + 1.0))
+	var h: float = game.hex_size * (3.0 * game.map_radius + 2.0)
 	return Rect2(game.map_offset - Vector2(w, h) * 0.5, Vector2(w, h)).grow(20.0)
