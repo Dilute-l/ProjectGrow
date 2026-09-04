@@ -4,6 +4,9 @@ extends CoreMode
 ## 径向模式：污染地块每隔一段时间向四周所有相邻地块扩散。
 ## 与 hex_game.gd 里 NEIGHBORS 的六个轴向偏移保持一致。
 
+## 部署该模式核心的费用消耗（点；接线方在部署入口使用）
+const DEPLOY_COST := 2
+
 const NEIGHBOR_OFFSETS: Array[Vector2i] = [
 	Vector2i(1, 0), Vector2i(-1, 0),
 	Vector2i(1, -1), Vector2i(-1, 1),
