@@ -23,6 +23,7 @@ const HEX_SIZE_DEFAULT := 26.0              # 六边形中心到顶点的距离�
 const MAX_UNITS_DEFAULT := 4                # 最大部署数量（默认）
 const ENEMY_ATTACK_INTERVAL_DEFAULT := 0.5  # 敌方攻击间隔（秒，默认）
 const TURRET_ATTACK_RANGE := 3              # 炮台攻击范围（格），用于范围高亮；与 enemy_turret.gd 默认一致
+const FIRST_RUN_FLAG := "user://has_started.flag"  # 首次进入标记（决定是否播放新手教程）
 
 # 运行时数值（可在控制台修改）
 var hex_size := HEX_SIZE_DEFAULT
@@ -75,10 +76,16 @@ var map_offset := Vector2.ZERO
 var total_hexes := 0
 
 # 核心选择与定向部署
-var selected_core := 0
+var selected_core := -1  # -1 = 尚未选择核心类型
 var awaiting_direction := false
 var pending_cell := Vector2i.ZERO
 var pending_type := 0
+
+var tutorial_active := false   # 新手教程是否正在播放（期间屏蔽游戏交互）
+var tutorial_node: Tutorial = null
+var tutorial_gate := ""          # 教程门槛："" | "deploy"（等待部署）| "attack"（等待敌方攻击）
+var tutorial_spotlight := ""     # 教程聚光灯："" | "core"（右下角）| "map"（地图）
+var core_selector_panel: PanelContainer = null
 
 # 控制台
 var console_open := false
@@ -87,9 +94,7 @@ var sb_units: SpinBox
 var sb_enemy: SpinBox
 
 var status_label: Label
-var info_label: Label
 var start_button: Button
-var tutorial_box: VBoxContainer
 var core_buttons: Array[Button] = []
 var core_selector_layer: CanvasLayer
 
@@ -112,7 +117,7 @@ func _ready() -> void:
 	_load_map()
 	_load_cores()
 	_register_core_modes()
-	selected_core = clampi(selected_core, 0, core_types.size() - 1)
+	selected_core = clampi(selected_core, -1, core_types.size() - 1)
 	_fit_hex_size()
 	_recenter()
 	_build_hud()
@@ -122,8 +127,11 @@ func _ready() -> void:
 	_build_file_dialog()
 	_reset()
 	queue_redraw()
+	_check_first_run()
 
 func _process(delta: float) -> void:
+	if tutorial_active:
+		return
 	if console_open:
 		return
 	if mode != Mode.PLAY:
@@ -165,9 +173,13 @@ func _process(delta: float) -> void:
 		queue_redraw()
 		return
 	# 6) 敌方攻击（每个存活炮台独立计时）
+	var attacked := false
 	for t in turret_map.values():
 		if t.tick(delta, polluted, units):
+			attacked = true
 			queue_redraw()
+	if attacked and tutorial_gate == "attack":
+		_on_tutorial_attack()
 	if units.is_empty() and _alive_turret_count() > 0:
 		phase = Phase.LOST
 	_free_orphan_cores()
@@ -178,6 +190,7 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_SIZE_CHANGED:
 		_fit_hex_size()
 		_recenter()
+		_update_tutorial_spotlight()
 		queue_redraw()
 
 # ---------------------------------------------------------------------------
@@ -488,6 +501,10 @@ func draw_hex(center: Vector2, size: float, col: Color) -> void:
 # 交互
 # ---------------------------------------------------------------------------
 func _unhandled_input(event: InputEvent) -> void:
+	if tutorial_active:
+		return
+	if tutorial_gate == "deploy" and event is InputEventKey:
+		return  # 部署等待期间屏蔽键盘，只允许鼠标放置
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_R:
 			if console_open:
@@ -541,6 +558,8 @@ func _spawn_core(cell: Vector2i, type_idx: int, dir: Vector2i) -> void:
 	core_container.add_child(n)
 	units[cell] = n
 	_pollute_with(cell, n.payload())
+	if tutorial_gate == "deploy":
+		_on_tutorial_deployed()
 
 func _remove_core(cell: Vector2i) -> void:
 	var n: PlayerCore = units.get(cell)
@@ -550,6 +569,9 @@ func _remove_core(cell: Vector2i) -> void:
 
 func _try_place(cell: Vector2i) -> void:
 	if not in_bounds(cell):
+		return
+	if selected_core < 0:
+		_set_status("请先选择核心类型")
 		return
 	if walls.has(cell):
 		return
@@ -621,6 +643,100 @@ func _reset() -> void:
 	start_button.disabled = (mode == Mode.EDIT)
 	_update_status()
 	queue_redraw()
+
+# ---------------------------------------------------------------------------
+# 新手教程
+# ---------------------------------------------------------------------------
+func _check_first_run() -> void:
+	if not FileAccess.file_exists(FIRST_RUN_FLAG):
+		_play_tutorial()
+
+func _play_tutorial() -> void:
+	tutorial_active = true
+	tutorial_node = Tutorial.new()
+	add_child(tutorial_node)
+	tutorial_node.finished.connect(_on_tutorial_finished)
+	tutorial_node.core_selector_highlight_requested.connect(_on_tutorial_highlight)
+	tutorial_node.deploy_wait_started.connect(_on_tutorial_deploy_wait)
+	tutorial_node.attack_wait_started.connect(_on_tutorial_attack_wait)
+	tutorial_node.start()
+
+func _on_tutorial_finished() -> void:
+	tutorial_active = false
+	tutorial_spotlight = ""
+	if tutorial_node != null:
+		tutorial_node.queue_free()
+		tutorial_node = null
+	var f := FileAccess.open(FIRST_RUN_FLAG, FileAccess.WRITE)
+	if f != null:
+		f.close()
+
+func _on_tutorial_highlight() -> void:
+	# 聚光灯照右下角核心选择区，且取消已选核心，引导玩家先选核心类型
+	tutorial_spotlight = "core"
+	selected_core = -1
+	for b in core_buttons:
+		b.button_pressed = false
+	_update_status()
+	_update_tutorial_spotlight()
+	queue_redraw()
+
+func _on_tutorial_deploy_wait() -> void:
+	# 教程要求玩家先部署一个触手：放开游戏输入
+	tutorial_active = false
+	tutorial_gate = "deploy"
+
+func _on_tutorial_attack_wait() -> void:
+	# growth 播完：让游戏继续运行，等待敌方第一次攻击
+	tutorial_active = false
+	tutorial_gate = "attack"
+
+func _on_tutorial_deployed() -> void:
+	tutorial_spotlight = ""
+	tutorial_gate = ""
+	tutorial_active = true
+	_update_tutorial_spotlight()
+	if tutorial_node != null:
+		tutorial_node.notify_deployed()
+
+func _on_tutorial_attack() -> void:
+	tutorial_gate = ""
+	tutorial_active = true
+	if tutorial_node != null:
+		tutorial_node.notify_enemy_attacked()
+
+func _replay_tutorial() -> void:
+	# 关闭控制台、清掉旧教程，复位游戏后重新播放
+	_close_console()
+	if tutorial_node != null and is_instance_valid(tutorial_node):
+		tutorial_node.queue_free()
+		tutorial_node = null
+	tutorial_active = false
+	tutorial_gate = ""
+	tutorial_spotlight = ""
+	if mode != Mode.PLAY:
+		_set_mode(Mode.PLAY)
+	else:
+		_reset()
+	_play_tutorial()
+
+func _update_tutorial_spotlight() -> void:
+	if tutorial_node == null:
+		return
+	match tutorial_spotlight:
+		"core":
+			if core_selector_panel != null:
+				var r := Rect2(core_selector_panel.global_position, core_selector_panel.size).grow(14.0)
+				tutorial_node.set_spotlight(r)
+		"map":
+			tutorial_node.set_spotlight(_map_spotlight_rect())
+		_:
+			tutorial_node.clear_spotlight()
+
+func _map_spotlight_rect() -> Rect2:
+	var w := hex_size * (3.0 * map_radius + 2.0)
+	var h := hex_size * (sqrt(3.0) * (2.0 * map_radius + 1.0))
+	return Rect2(map_offset - Vector2(w, h) * 0.5, Vector2(w, h)).grow(20.0)
 
 # ---------------------------------------------------------------------------
 # 地图编辑器
@@ -872,30 +988,6 @@ func _build_hud() -> void:
 	vbox.add_theme_constant_override("separation", 8)
 	margin.add_child(vbox)
 
-	# 教程窗口（标题 + 说明，可关闭）
-	tutorial_box = VBoxContainer.new()
-	vbox.add_child(tutorial_box)
-
-	var title_row := HBoxContainer.new()
-	tutorial_box.add_child(title_row)
-
-	var title := Label.new()
-	title.text = "六边形污染扩散"
-	title.add_theme_font_size_override("font_size", 24)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_row.add_child(title)
-
-	var close_tut := Button.new()
-	close_tut.text = "关闭"
-	close_tut.pressed.connect(_close_tutorial)
-	title_row.add_child(close_tut)
-
-	info_label = Label.new()
-	info_label.text = "在右下角选择要部署的核心类型：\n· 扩散核心（径向）：污染身下地块，并每隔一段时间向周围所有相邻地块扩散。\n· 定向核心：部署后需点击相邻地块选择延伸方向，其污染的地块会沿该方向扩散。\n只能在地图最外围一圈部署单位；墙阻挡污染且不可部署；核心到期后其污染地块保留但不再扩散。\n每个敌方炮台每隔一段时间攻击，清除离自己最近的污染地块。\n污染到达所有敌方炮台所在地块则获胜；所有核心结束而仍有存活炮台则失败。\n按 R 打开控制台调整数值；按 Tab 切换编辑/游玩模式。"
-	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	info_label.custom_minimum_size = Vector2(460, 0)
-	tutorial_box.add_child(info_label)
-
 	status_label = Label.new()
 	status_label.add_theme_font_size_override("font_size", 16)
 	status_label.add_theme_color_override("font_color", Color("ffd166"))
@@ -928,6 +1020,7 @@ func _build_core_selector() -> void:
 
 	var panel := PanelContainer.new()
 	core_selector_layer.add_child(panel)
+	core_selector_panel = panel
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 12)
@@ -956,7 +1049,8 @@ func _build_core_selector() -> void:
 		btn.pressed.connect(_select_core.bind(i))
 		core_buttons.append(btn)
 		vbox.add_child(btn)
-	core_buttons[selected_core].button_pressed = true
+	if selected_core >= 0 and selected_core < core_buttons.size():
+		core_buttons[selected_core].button_pressed = true
 
 	# 先添加子节点再设置锚点，确保按实际内容尺寸定位到右下角
 	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
@@ -968,12 +1062,11 @@ func _select_core(i: int) -> void:
 	awaiting_direction = false
 	for j in range(core_buttons.size()):
 		core_buttons[j].button_pressed = (j == i)
+	if tutorial_spotlight == "core":
+		tutorial_spotlight = "map"
+		_update_tutorial_spotlight()
 	_update_status()
 	queue_redraw()
-
-func _close_tutorial() -> void:
-	if tutorial_box:
-		tutorial_box.visible = false
 
 func _set_status(text: String) -> void:
 	if status_label:
@@ -987,6 +1080,8 @@ func _update_status() -> void:
 		Phase.DEPLOY:
 			if awaiting_direction:
 				_set_status("定向核心：请点击相邻地块选择延伸方向（右键取消）")
+			elif selected_core < 0:
+				_set_status("部署阶段：请先在右下角选择核心类型")
 			else:
 				var t: Dictionary = core_types[selected_core]
 				_set_status("部署阶段：当前核心「%s」，剩余可部署 %d 个（只能部署在最外围一圈）" % [t["name"], max_units - units.size()])
@@ -1063,6 +1158,11 @@ func _build_console() -> void:
 	default_btn.text = "恢复默认"
 	default_btn.pressed.connect(_console_defaults)
 	hbox.add_child(default_btn)
+
+	var replay_btn := Button.new()
+	replay_btn.text = "重新播放教程"
+	replay_btn.pressed.connect(_replay_tutorial)
+	hbox.add_child(replay_btn)
 
 	var close_btn := Button.new()
 	close_btn.text = "关闭"
