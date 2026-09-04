@@ -1,20 +1,21 @@
 extends Node2D
 
 ## 六边形污染扩散 —— 玩法示例
+## 地图从一个 JSON 文件读取：包含地图尺寸（width/height）、敌方炮台位置（turrets，可为多个）、墙的位置（walls）。
 ## 部署我方单位（不会移动），每个单位是一个“核心”，拥有持续时间，会污染身下地块；
 ## 只要还有存活的核心，每个污染地块每隔一段时间就会向周围所有相邻地块扩散；
-## 核心结束后，已蔓延出的污染地块保留但不再继续蔓延。敌方炮台每隔一段时间攻击，
-## 清除离自己最近的污染地块（若为核心所在地块则摧毁核心）。
-## 污染到达中央炮台所在地块 => 炮台损毁、我方获胜；
-## 所有核心持续时间结束而敌方仍存活 => 我方失败。
-## 按 R 打开/关闭控制台，可调整地图大小、我方与敌方的数值。
+## 墙会阻挡污染扩散，且不可部署单位。核心结束后，已蔓延出的污染地块保留但不再继续蔓延。
+## 每个敌方炮台每隔一段时间攻击，清除离自己最近的污染地块（若为核心所在地块则摧毁核心）。
+## 污染到达所有敌方炮台所在地块 => 炮台全部损毁、我方获胜；
+## 所有核心持续时间结束而仍有存活炮台 => 我方失败。
+## 按 R 打开/关闭控制台，可调整我方与敌方的数值。
 
 # ---------------------------------------------------------------------------
 # 配置（运行时可在控制台中调整）
 # ---------------------------------------------------------------------------
-const HEX_SIZE_DEFAULT := 26.0        # 六边形中心到顶点的距离（像素，默认）
-const GRID_RADIUS_DEFAULT := 4        # 六边形地图半径（中心向外层数，默认）
+const MAP_PATH := "res://maps/level1.json"  # 地图数据文件
 
+const HEX_SIZE_DEFAULT := 26.0        # 六边形中心到顶点的距离（像素，默认）
 const MAX_UNITS_DEFAULT := 4          # 我方可部署单位数量（默认）
 const CORE_DURATION_DEFAULT := 15.0   # 我方单位“核心”持续时间（秒，默认）
 const SPREAD_INTERVAL_DEFAULT := 0.9  # 扩散时间间隔（秒，默认）
@@ -22,11 +23,16 @@ const ENEMY_ATTACK_INTERVAL_DEFAULT := 0.5  # 敌方攻击间隔（秒，默认�
 
 # 运行时数值（可在控制台修改）
 var hex_size := HEX_SIZE_DEFAULT
-var grid_radius := GRID_RADIUS_DEFAULT
 var max_units := MAX_UNITS_DEFAULT
 var core_duration := CORE_DURATION_DEFAULT
 var spread_interval := SPREAD_INTERVAL_DEFAULT
 var enemy_attack_interval := ENEMY_ATTACK_INTERVAL_DEFAULT
+
+# 地图数据（从文件读取）
+var map_width := 0
+var map_height := 0
+var walls: Dictionary = {}            # Vector2i -> true
+var turret_positions: Array[Vector2i] = []  # 所有敌方炮台位置
 
 const COL_BG           := Color("0d1321")
 const COL_TILE         := Color("243045")
@@ -38,6 +44,8 @@ const COL_UNIT_RING    := Color("d7f3ff")
 const COL_TURRET       := Color("ff5252")
 const COL_TURRET_RING  := Color("ffd6d6")
 const COL_TURRET_DEAD  := Color("4a2525")
+const COL_WALL         := Color("2a303d")
+const COL_WALL_EDGE    := Color("6b7688")
 const COL_LINE         := Color(1.0, 1.0, 1.0, 0.10)
 
 enum Phase { DEPLOY, RUNNING, WON, LOST }
@@ -51,10 +59,8 @@ const NEIGHBORS: Array[Vector2i] = [
 var phase := Phase.DEPLOY
 var units: Dictionary = {}      # Vector2i -> 剩余持续时间（秒）
 var polluted: Dictionary = {}   # Vector2i -> true
-var turret_coord := Vector2i.ZERO
-var turret_alive := true
+var turrets: Dictionary = {}    # Vector2i -> 距下次攻击的时间（秒）；存在即存活
 var spread_timer := 0.0
-var enemy_attack_timer := 0.0
 var hover_cell := Vector2i(999999, 999999)
 var map_offset := Vector2.ZERO
 var total_hexes := 0
@@ -62,7 +68,6 @@ var total_hexes := 0
 # 控制台
 var console_open := false
 var console_layer: CanvasLayer
-var sb_radius: SpinBox
 var sb_units: SpinBox
 var sb_core: SpinBox
 var sb_spread: SpinBox
@@ -76,12 +81,12 @@ var start_button: Button
 # 生命周期
 # ---------------------------------------------------------------------------
 func _ready() -> void:
-	_recenter()
+	_load_map()
 	_fit_hex_size()
-	total_hexes = all_cells().size()
+	_recenter()
 	_build_hud()
 	_build_console()
-	_update_status()
+	_reset()
 	queue_redraw()
 
 func _process(delta: float) -> void:
@@ -97,9 +102,9 @@ func _process(delta: float) -> void:
 			expired.append(cell)
 	for cell in expired:
 		units.erase(cell)
-	# 2) 所有核心已结束：停止蔓延；若敌方仍存活则失败
+	# 2) 所有核心已结束：停止蔓延；若仍有存活炮台则失败
 	if units.is_empty():
-		if turret_alive:
+		if not turrets.is_empty():
 			phase = Phase.LOST
 		_update_status()
 		queue_redraw()
@@ -113,41 +118,98 @@ func _process(delta: float) -> void:
 		_update_status()
 		queue_redraw()
 		return
-	# 4) 敌方攻击
-	enemy_attack_timer += delta
-	if enemy_attack_timer >= enemy_attack_interval:
-		enemy_attack_timer = 0.0
-		_enemy_attack()
+	# 4) 敌方攻击（每个存活炮台独立计时）
+	for cell in turrets.keys():
+		turrets[cell] = turrets[cell] + delta
+		if turrets[cell] >= enemy_attack_interval:
+			turrets[cell] = 0.0
+			_enemy_attack(cell)
 	# 敌方攻击可能摧毁最后一个核心
-	if units.is_empty() and turret_alive:
+	if units.is_empty() and not turrets.is_empty():
 		phase = Phase.LOST
 	_update_status()
 	queue_redraw()
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_SIZE_CHANGED:
-		_recenter()
 		_fit_hex_size()
+		_recenter()
 		queue_redraw()
+
+# ---------------------------------------------------------------------------
+# 地图加载
+# ---------------------------------------------------------------------------
+func _load_map() -> void:
+	map_width = 0
+	map_height = 0
+	walls.clear()
+	turret_positions.clear()
+	if FileAccess.file_exists(MAP_PATH):
+		var f := FileAccess.open(MAP_PATH, FileAccess.READ)
+		if f != null:
+			var text := f.get_as_text()
+			f.close()
+			var data = JSON.parse_string(text)
+			if data is Dictionary:
+				map_width = int(data.get("width", 0))
+				map_height = int(data.get("height", 0))
+				# 炮台：支持 "turrets"（数组）与旧的 "turret"（单个）
+				var t = data.get("turrets", null)
+				if t is Array:
+					for entry in t:
+						if entry is Dictionary:
+							turret_positions.append(Vector2i(int(entry.get("q", 0)), int(entry.get("r", 0))))
+				else:
+					var single = data.get("turret", null)
+					if single is Dictionary:
+						turret_positions.append(Vector2i(int(single.get("q", 0)), int(single.get("r", 0))))
+				# 墙
+				var w = data.get("walls", [])
+				if w is Array:
+					for entry in w:
+						if entry is Dictionary:
+							var wc := Vector2i(int(entry.get("q", 0)), int(entry.get("r", 0)))
+							walls[wc] = true
+	# 回退与校验
+	if map_width < 1:
+		map_width = 9
+	if map_height < 1:
+		map_height = 9
+	# 清理越界的墙
+	for cell in walls.keys():
+		if not in_bounds(cell):
+			walls.erase(cell)
+	# 清理越界或位于墙上的炮台
+	var valid: Array[Vector2i] = []
+	for p in turret_positions:
+		if in_bounds(p) and not walls.has(p):
+			valid.append(p)
+	turret_positions = valid
+	if turret_positions.is_empty():
+		turret_positions.append(Vector2i(map_width >> 1, map_height >> 1))
+	total_hexes = map_width * map_height
 
 func _recenter() -> void:
 	var vs := get_viewport_rect().size
-	map_offset = Vector2(vs.x * 0.5, vs.y * 0.5 + 50.0)
+	var target := Vector2(vs.x * 0.5, vs.y * 0.5 + 50.0)
+	var cx := (map_width - 1) * 0.5
+	var cr := (map_height - 1) * 0.5
+	map_offset = target - axial_to_pixel(cx, cr, hex_size)
 
-# 根据当前地图半径自动缩放六边形大小，使地图始终适配窗口
+# 根据地图尺寸自动缩放六边形大小，使地图始终适配窗口
 func _fit_hex_size() -> void:
 	var vs := get_viewport_rect().size
 	var margin := 60.0
 	var avail_w := vs.x - margin * 2.0
 	var avail_h := vs.y - margin * 2.0 - 90.0  # 顶部 HUD 约 90px
-	var by_w := avail_w / (3.0 * grid_radius + 2.0)
-	var by_h := avail_h / (sqrt(3.0) * (2.0 * grid_radius + 1.0))
+	var by_w := avail_w / (1.5 * (map_width - 1.0) + 2.0)
+	var by_h := avail_h / (sqrt(3.0) * ((map_height - 1.0) + (map_width - 1.0) * 0.5 + 1.0))
 	hex_size = clampf(minf(HEX_SIZE_DEFAULT, minf(by_w, by_h)), 8.0, HEX_SIZE_DEFAULT)
 
 # ---------------------------------------------------------------------------
 # 六边形数学（轴向坐标，平顶六边形）
 # ---------------------------------------------------------------------------
-static func axial_to_pixel(q: int, r: int, size: float) -> Vector2:
+static func axial_to_pixel(q: float, r: float, size: float) -> Vector2:
 	return Vector2(size * 1.5 * q, size * sqrt(3.0) * (r + q * 0.5))
 
 func hex_center(cell: Vector2i) -> Vector2:
@@ -181,15 +243,13 @@ func cube_dist(a: Vector2i, b: Vector2i) -> int:
 	return maxi(absi(dx), maxi(absi(dy), absi(dz)))
 
 func in_bounds(cell: Vector2i) -> bool:
-	return cube_dist(cell, Vector2i.ZERO) <= grid_radius
+	return cell.x >= 0 and cell.x < map_width and cell.y >= 0 and cell.y < map_height
 
 func all_cells() -> Array[Vector2i]:
 	var arr: Array[Vector2i] = []
-	for q in range(-grid_radius, grid_radius + 1):
-		for r in range(-grid_radius, grid_radius + 1):
-			var c := Vector2i(q, r)
-			if in_bounds(c):
-				arr.append(c)
+	for q in range(map_width):
+		for r in range(map_height):
+			arr.append(Vector2i(q, r))
 	return arr
 
 # ---------------------------------------------------------------------------
@@ -199,6 +259,18 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, get_viewport_rect().size), COL_BG)
 	for cell in all_cells():
 		draw_hex(hex_center(cell), hex_size - 1.2, _tile_color(cell))
+	# 墙（内部实心块 + 边框）
+	for cell in walls:
+		var c := hex_center(cell)
+		var s := hex_size * 0.42
+		var pts := PackedVector2Array()
+		for i in 6:
+			var a := deg_to_rad(60.0 * i)
+			pts.append(c + Vector2(cos(a), sin(a)) * s)
+		draw_colored_polygon(pts, COL_WALL_EDGE)
+		var closed := pts.duplicate()
+		closed.append(pts[0])
+		draw_polyline(closed, Color(1.0, 1.0, 1.0, 0.18), 1.0)
 	# 我方单位（核心）
 	for cell in units:
 		var c := hex_center(cell)
@@ -207,29 +279,30 @@ func _draw() -> void:
 		# 持续时间环（随剩余时间缩短）
 		var frac := clampf(units[cell] / core_duration, 0.0, 1.0)
 		draw_arc(c, hex_size * 0.52, -PI * 0.5, -PI * 0.5 + TAU * frac, 24, COL_UNIT_RING, 3.0)
-	# 敌方炮台
-	var tc := hex_center(turret_coord)
-	if turret_alive:
-		draw_circle(tc, hex_size * 0.52, COL_TURRET)
-		draw_arc(tc, hex_size * 0.52, 0.0, TAU, 24, COL_TURRET_RING, 2.0)
-		var dir := Vector2(0.0, -1.0) * hex_size * 0.82
-		var perp := Vector2(hex_size * 0.22, 0.0)
-		draw_colored_polygon(PackedVector2Array([tc + dir, tc + perp, tc - perp]), COL_TURRET)
-		if phase == Phase.RUNNING:
-			# 敌方攻击充能环
-			var afrac := clampf(enemy_attack_timer / enemy_attack_interval, 0.0, 1.0)
-			draw_arc(tc, hex_size * 0.66, -PI * 0.5, -PI * 0.5 + TAU * afrac, 32, COL_TURRET_RING, 2.5)
-	else:
-		draw_circle(tc, hex_size * 0.52, COL_TURRET_DEAD)
-		draw_line(tc + Vector2(-1, -1) * hex_size * 0.3, tc + Vector2(1, 1) * hex_size * 0.3, COL_TURRET_RING, 3.0)
-		draw_line(tc + Vector2(-1, 1) * hex_size * 0.3, tc + Vector2(1, -1) * hex_size * 0.3, COL_TURRET_RING, 3.0)
+	# 敌方炮台（可为多个）
+	for p in turret_positions:
+		var tc := hex_center(p)
+		if turrets.has(p):
+			draw_circle(tc, hex_size * 0.52, COL_TURRET)
+			draw_arc(tc, hex_size * 0.52, 0.0, TAU, 24, COL_TURRET_RING, 2.0)
+			var dir := Vector2(0.0, -1.0) * hex_size * 0.82
+			var perp := Vector2(hex_size * 0.22, 0.0)
+			draw_colored_polygon(PackedVector2Array([tc + dir, tc + perp, tc - perp]), COL_TURRET)
+			if phase == Phase.RUNNING:
+				# 敌方攻击充能环
+				var afrac := clampf(turrets[p] / enemy_attack_interval, 0.0, 1.0)
+				draw_arc(tc, hex_size * 0.66, -PI * 0.5, -PI * 0.5 + TAU * afrac, 32, COL_TURRET_RING, 2.5)
+		else:
+			draw_circle(tc, hex_size * 0.52, COL_TURRET_DEAD)
+			draw_line(tc + Vector2(-1, -1) * hex_size * 0.3, tc + Vector2(1, 1) * hex_size * 0.3, COL_TURRET_RING, 3.0)
+			draw_line(tc + Vector2(-1, 1) * hex_size * 0.3, tc + Vector2(1, -1) * hex_size * 0.3, COL_TURRET_RING, 3.0)
 
 func _tile_color(cell: Vector2i) -> Color:
-	var polluted_here := polluted.has(cell)
-	var hovered := cell == hover_cell
-	if polluted_here:
-		return COL_POLLUTED_HI if hovered else COL_POLLUTED
-	if hovered and phase == Phase.DEPLOY and cell != turret_coord and not units.has(cell):
+	if walls.has(cell):
+		return COL_WALL
+	if polluted.has(cell):
+		return COL_POLLUTED_HI if cell == hover_cell else COL_POLLUTED
+	if cell == hover_cell and phase == Phase.DEPLOY and not turret_positions.has(cell) and not units.has(cell):
 		return COL_TILE_HOVER
 	return COL_TILE
 
@@ -276,7 +349,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func _try_place(cell: Vector2i) -> void:
 	if not in_bounds(cell):
 		return
-	if cell == turret_coord:
+	if walls.has(cell):
+		return
+	if turret_positions.has(cell):
 		return
 	if units.has(cell):
 		return
@@ -303,7 +378,8 @@ func _start() -> void:
 		return
 	phase = Phase.RUNNING
 	spread_timer = 0.0
-	enemy_attack_timer = 0.0
+	for p in turrets.keys():
+		turrets[p] = 0.0
 	start_button.disabled = true
 	_update_status()
 	queue_redraw()
@@ -312,9 +388,10 @@ func _reset() -> void:
 	phase = Phase.DEPLOY
 	units.clear()
 	polluted.clear()
-	turret_alive = true
+	turrets.clear()
+	for p in turret_positions:
+		turrets[p] = 0.0
 	spread_timer = 0.0
-	enemy_attack_timer = 0.0
 	start_button.disabled = false
 	_update_status()
 	queue_redraw()
@@ -331,20 +408,26 @@ func _spread_tick() -> void:
 	for cell in snapshot:
 		for d in NEIGHBORS:
 			var n: Vector2i = cell + d
-			if in_bounds(n) and not polluted.has(n):
+			if in_bounds(n) and not polluted.has(n) and not walls.has(n):
 				newly[n] = true
 	for c in newly:
 		_pollute(c)
-	if turret_alive and polluted.has(turret_coord):
-		turret_alive = false
+	# 摧毁被污染的炮台
+	var destroyed := false
+	for cell in turrets.keys():
+		if polluted.has(cell):
+			turrets.erase(cell)
+			destroyed = true
+	# 所有炮台都被摧毁 => 胜利
+	if destroyed and turrets.is_empty():
 		phase = Phase.WON
 	queue_redraw()
 
 # ---------------------------------------------------------------------------
 # 敌方攻击
 # ---------------------------------------------------------------------------
-func _enemy_attack() -> void:
-	var target = _nearest_polluted(turret_coord)
+func _enemy_attack(from: Vector2i) -> void:
+	var target = _nearest_polluted(from)
 	if target == null:
 		return
 	polluted.erase(target)
@@ -391,7 +474,7 @@ func _build_hud() -> void:
 	vbox.add_child(title)
 
 	info_label = Label.new()
-	info_label.text = "点击地块部署我方单位（核心），每个核心有持续时间，会污染身下地块并每隔一段时间向周围所有相邻地块扩散；核心结束后污染地块保留但不再蔓延。\n敌方炮台每隔一段时间攻击，清除离自己最近的污染地块（核心所在地块会被摧毁）。\n污染到达中央炮台所在地块则我方获胜；所有核心持续时间结束而敌方仍存活则我方失败。\n按 R 打开控制台调整地图大小与各项数值。"
+	info_label.text = "点击地块部署我方单位（核心），每个核心有持续时间，会污染身下地块并每隔一段时间向周围所有相邻地块扩散；核心结束后污染地块保留但不再蔓延。\n地图从文件读取（含地图尺寸、敌方炮台位置、墙）；墙会阻挡污染扩散且不可部署。\n每个敌方炮台每隔一段时间攻击，清除离自己最近的污染地块（核心所在地块会被摧毁）。\n污染到达所有敌方炮台所在地块则我方获胜；所有核心持续时间结束而仍有存活炮台则我方失败。\n按 R 打开控制台调整数值。"
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info_label.custom_minimum_size = Vector2(460, 0)
 	vbox.add_child(info_label)
@@ -424,12 +507,11 @@ func _update_status() -> void:
 		Phase.DEPLOY:
 			_set_status("部署阶段：剩余可部署单位 %d 个（每个核心持续 %.0f 秒）" % [max_units - units.size(), core_duration])
 		Phase.RUNNING:
-			var next_attack := maxf(enemy_attack_interval - enemy_attack_timer, 0.0)
-			_set_status("扩散中…… 已污染 %d/%d 地块 | 存活核心 %d | 敌方 %.1f 秒后攻击" % [polluted.size(), total_hexes, units.size(), next_attack])
+			_set_status("扩散中…… 已污染 %d/%d 地块 | 存活核心 %d | 存活炮台 %d" % [polluted.size(), total_hexes, units.size(), turrets.size()])
 		Phase.WON:
-			_set_status("胜利！敌方炮台所在地块已被污染，炮台损毁")
+			_set_status("胜利！所有敌方炮台都被污染损毁")
 		Phase.LOST:
-			_set_status("失败！所有单位核心已结束，而敌方炮台仍存活")
+			_set_status("失败！所有单位核心已结束，而仍有存活的敌方炮台")
 
 # ---------------------------------------------------------------------------
 # 控制台
@@ -468,10 +550,6 @@ func _build_console() -> void:
 	title.text = "控制台 · 调整数值"
 	title.add_theme_font_size_override("font_size", 22)
 	vbox.add_child(title)
-
-	# 地图
-	vbox.add_child(_section_label("—— 地图 ——"))
-	sb_radius = _add_spin_row(vbox, "地图半径", 1.0, 8.0, 1.0, grid_radius, true)
 
 	# 我方
 	vbox.add_child(_section_label("—— 我方 ——"))
@@ -536,7 +614,6 @@ func _add_spin_row(parent: Control, label_text: String, mn: float, mx: float, st
 	return sb
 
 func _open_console() -> void:
-	sb_radius.value = grid_radius
 	sb_units.value = max_units
 	sb_core.value = core_duration
 	sb_spread.value = spread_interval
@@ -551,12 +628,6 @@ func _close_console() -> void:
 	queue_redraw()
 
 func _console_apply() -> void:
-	var new_radius := int(round(sb_radius.value))
-	if new_radius != grid_radius:
-		grid_radius = new_radius
-		_fit_hex_size()
-		total_hexes = all_cells().size()
-		_prune_out_of_bounds()
 	max_units = int(round(sb_units.value))
 	core_duration = sb_core.value
 	spread_interval = sb_spread.value
@@ -565,27 +636,13 @@ func _console_apply() -> void:
 	queue_redraw()
 
 func _console_defaults() -> void:
-	grid_radius = GRID_RADIUS_DEFAULT
-	hex_size = HEX_SIZE_DEFAULT
 	max_units = MAX_UNITS_DEFAULT
 	core_duration = CORE_DURATION_DEFAULT
 	spread_interval = SPREAD_INTERVAL_DEFAULT
 	enemy_attack_interval = ENEMY_ATTACK_INTERVAL_DEFAULT
-	total_hexes = all_cells().size()
-	_prune_out_of_bounds()
-	sb_radius.value = grid_radius
 	sb_units.value = max_units
 	sb_core.value = core_duration
 	sb_spread.value = spread_interval
 	sb_enemy.value = enemy_attack_interval
 	_update_status()
 	queue_redraw()
-
-# 地图缩小后，移除越界的地块上的单位与污染
-func _prune_out_of_bounds() -> void:
-	for cell in units.keys():
-		if not in_bounds(cell):
-			units.erase(cell)
-	for cell in polluted.keys():
-		if not in_bounds(cell):
-			polluted.erase(cell)
