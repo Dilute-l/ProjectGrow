@@ -1,8 +1,11 @@
 extends Node2D
 
 ## 六边形污染扩散 —— 玩法示例
-## 地图从 level1.json 读取（尺寸、敌方炮台位置、墙）；核心类型从 cores.json 读取（含持续时间、扩散间隔、颜色、模式）。
-## 玩家按数字键选择要部署的核心类型：
+## 地图从 level1.json 读取（半径、敌方炮台位置、墙）；核心类型从 cores.json 读取（含持续时间、扩散间隔、颜色、模式）。
+## 两种模式（Tab 或左上角按钮切换）：
+##   - 游玩模式：部署核心、污染扩散、与敌方炮台对战；
+##   - 地图编辑模式：放置/擦除墙与炮台、调整半径、导入/导出地图 JSON。
+## 核心类型（右下角选择）：
 ##   - 扩散核心（radial）：污染身下地块，并每隔一段时间向周围所有相邻地块扩散；
 ##   - 定向核心（directional）：部署时须点击相邻地块选择方向，其污染的地块会沿该方向扩散。
 ## 墙阻挡污染且不可部署；核心到期后其污染地块保留但不再扩散。
@@ -25,7 +28,7 @@ var hex_size := HEX_SIZE_DEFAULT
 var max_units := MAX_UNITS_DEFAULT
 var enemy_attack_interval := ENEMY_ATTACK_INTERVAL_DEFAULT
 
-# 地图数据（从文件读取）
+# 地图数据（从文件读取 / 编辑）
 var map_radius := 0                            # 六边形地图半径（中心向外层数）
 var walls: Dictionary = {}                    # Vector2i -> true
 var turret_positions: Array[Vector2i] = []    # 所有敌方炮台位置
@@ -87,6 +90,19 @@ var info_label: Label
 var start_button: Button
 var tutorial_box: VBoxContainer
 var core_buttons: Array[Button] = []
+var core_selector_layer: CanvasLayer
+
+# 地图编辑器
+enum Mode { PLAY, EDIT }
+var mode := Mode.PLAY
+var editor_brush := 0              # 0=墙, 1=炮台
+var editor_layer: CanvasLayer
+var mode_button: Button
+var radius_label: Label
+var wall_btn: Button
+var turret_btn: Button
+var file_dialog: FileDialog
+var file_dialog_purpose := 0       # 0=导入, 1=导出
 
 # ---------------------------------------------------------------------------
 # 生命周期
@@ -100,11 +116,15 @@ func _ready() -> void:
 	_build_hud()
 	_build_console()
 	_build_core_selector()
+	_build_editor_ui()
+	_build_file_dialog()
 	_reset()
 	queue_redraw()
 
 func _process(delta: float) -> void:
 	if console_open:
+		return
+	if mode != Mode.PLAY:
 		return
 	if phase != Phase.RUNNING:
 		return
@@ -159,12 +179,10 @@ func _notification(what: int) -> void:
 		queue_redraw()
 
 # ---------------------------------------------------------------------------
-# 数据加载
+# 数据加载 / 地图序列化
 # ---------------------------------------------------------------------------
 func _load_map() -> void:
-	map_radius = 0
-	walls.clear()
-	turret_positions.clear()
+	var loaded := false
 	if FileAccess.file_exists(MAP_PATH):
 		var f := FileAccess.open(MAP_PATH, FileAccess.READ)
 		if f != null:
@@ -172,24 +190,37 @@ func _load_map() -> void:
 			f.close()
 			var data = JSON.parse_string(text)
 			if data is Dictionary:
-				map_radius = int(data.get("radius", 0))
-				var t = data.get("turrets", null)
-				if t is Array:
-					for entry in t:
-						if entry is Dictionary:
-							turret_positions.append(Vector2i(int(entry.get("q", 0)), int(entry.get("r", 0))))
-				else:
-					var single = data.get("turret", null)
-					if single is Dictionary:
-						turret_positions.append(Vector2i(int(single.get("q", 0)), int(single.get("r", 0))))
-				var w = data.get("walls", [])
-				if w is Array:
-					for entry in w:
-						if entry is Dictionary:
-							var wc := Vector2i(int(entry.get("q", 0)), int(entry.get("r", 0)))
-							walls[wc] = true
+				_apply_map_data(data)
+				loaded = true
+	if not loaded:
+		_apply_map_data({"radius": 5})
+	if turret_positions.is_empty():
+		turret_positions.append(Vector2i.ZERO)
+	total_hexes = all_cells().size()
+
+func _apply_map_data(data: Dictionary) -> void:
+	map_radius = int(data.get("radius", 5))
 	if map_radius < 1:
 		map_radius = 5
+	walls.clear()
+	turret_positions.clear()
+	var t = data.get("turrets", null)
+	if t is Array:
+		for entry in t:
+			if entry is Dictionary:
+				turret_positions.append(Vector2i(int(entry.get("q", 0)), int(entry.get("r", 0))))
+	else:
+		var single = data.get("turret", null)
+		if single is Dictionary:
+			turret_positions.append(Vector2i(int(single.get("q", 0)), int(single.get("r", 0))))
+	var w = data.get("walls", [])
+	if w is Array:
+		for entry in w:
+			if entry is Dictionary:
+				walls[Vector2i(int(entry.get("q", 0)), int(entry.get("r", 0)))] = true
+	_prune_map()
+
+func _prune_map() -> void:
 	for cell in walls.keys():
 		if not in_bounds(cell):
 			walls.erase(cell)
@@ -198,9 +229,51 @@ func _load_map() -> void:
 		if in_bounds(p) and not walls.has(p):
 			valid.append(p)
 	turret_positions = valid
-	if turret_positions.is_empty():
-		turret_positions.append(Vector2i.ZERO)
-	total_hexes = all_cells().size()
+
+func _map_to_dict() -> Dictionary:
+	var turrets_arr: Array = []
+	for p in turret_positions:
+		turrets_arr.append({"q": p.x, "r": p.y})
+	var walls_arr: Array = []
+	for cell in walls:
+		walls_arr.append({"q": cell.x, "r": cell.y})
+	return {"radius": map_radius, "turrets": turrets_arr, "walls": walls_arr}
+
+func _export_map(path: String) -> void:
+	if not path.ends_with(".json"):
+		path += ".json"
+	var text := JSON.stringify(_map_to_dict(), "\t")
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f != null:
+		f.store_string(text)
+		f.close()
+		_set_status("已导出地图：" + path)
+	else:
+		_set_status("导出失败：无法写入 " + path)
+
+func _import_map(path: String) -> void:
+	if not FileAccess.file_exists(path):
+		_set_status("导入失败：文件不存在 " + path)
+		return
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		_set_status("导入失败：无法读取 " + path)
+		return
+	var text := f.get_as_text()
+	f.close()
+	var data = JSON.parse_string(text)
+	if data is Dictionary:
+		_apply_map_data(data)
+		total_hexes = all_cells().size()
+		_fit_hex_size()
+		_recenter()
+		_reset()
+		if radius_label:
+			radius_label.text = "半径 %d" % map_radius
+		_set_status("已导入地图：" + path)
+	else:
+		_set_status("导入失败：JSON 格式错误")
+	queue_redraw()
 
 func _load_cores() -> void:
 	core_types.clear()
@@ -362,13 +435,14 @@ func _draw() -> void:
 	# 敌方炮台（可为多个）
 	for p in turret_positions:
 		var tc := hex_center(p)
-		if turrets.has(p):
+		var alive := mode == Mode.EDIT or turrets.has(p)
+		if alive:
 			draw_circle(tc, hex_size * 0.52, COL_TURRET)
 			draw_arc(tc, hex_size * 0.52, 0.0, TAU, 24, COL_TURRET_RING, 2.0)
 			var dir := Vector2(0.0, -1.0) * hex_size * 0.82
 			var perp := Vector2(hex_size * 0.22, 0.0)
 			draw_colored_polygon(PackedVector2Array([tc + dir, tc + perp, tc - perp]), COL_TURRET)
-			if phase == Phase.RUNNING:
+			if phase == Phase.RUNNING and mode == Mode.PLAY:
 				var afrac := clampf(turrets[p] / enemy_attack_interval, 0.0, 1.0)
 				draw_arc(tc, hex_size * 0.66, -PI * 0.5, -PI * 0.5 + TAU * afrac, 32, COL_TURRET_RING, 2.5)
 		else:
@@ -381,7 +455,7 @@ func _tile_color(cell: Vector2i) -> Color:
 		return COL_WALL
 	if polluted.has(cell):
 		return COL_POLLUTED_HI if cell == hover_cell else COL_POLLUTED
-	if cell == hover_cell and phase == Phase.DEPLOY and not turret_positions.has(cell) and not units.has(cell):
+	if cell == hover_cell and (mode == Mode.EDIT or phase == Phase.DEPLOY) and not turret_positions.has(cell) and not units.has(cell):
 		return COL_TILE_HOVER
 	return COL_TILE
 
@@ -410,7 +484,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			if console_open:
 				_close_console()
 			return
+		if event.keycode == KEY_TAB:
+			_toggle_mode()
+			return
 	if console_open:
+		return
+	if mode == Mode.EDIT:
+		_handle_editor_input(event)
 		return
 	if event is InputEventMouseMotion:
 		hover_cell = pixel_to_hex(event.position)
@@ -520,9 +600,166 @@ func _reset() -> void:
 	radial_spread_timer = 0.0
 	directional_spread_timer = 0.0
 	awaiting_direction = false
-	start_button.disabled = false
+	start_button.disabled = (mode == Mode.EDIT)
 	_update_status()
 	queue_redraw()
+
+# ---------------------------------------------------------------------------
+# 地图编辑器
+# ---------------------------------------------------------------------------
+func _toggle_mode() -> void:
+	_set_mode(Mode.EDIT if mode == Mode.PLAY else Mode.PLAY)
+
+func _set_mode(m: int) -> void:
+	mode = m
+	_reset()
+	editor_layer.visible = (mode == Mode.EDIT)
+	core_selector_layer.visible = (mode == Mode.PLAY)
+	if mode_button:
+		mode_button.text = "编辑模式" if mode == Mode.PLAY else "游玩模式"
+	_update_status()
+	queue_redraw()
+
+func _handle_editor_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		hover_cell = pixel_to_hex(event.position)
+		queue_redraw()
+	elif event is InputEventMouseButton and event.pressed:
+		var cell := pixel_to_hex(event.position)
+		if not in_bounds(cell):
+			return
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			_editor_place(cell)
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			_editor_erase(cell)
+
+func _editor_place(cell: Vector2i) -> void:
+	if editor_brush == 0:  # 墙
+		walls[cell] = true
+		turret_positions.erase(cell)  # 墙与炮台不重叠
+	else:  # 炮台
+		walls.erase(cell)
+		if not turret_positions.has(cell):
+			turret_positions.append(cell)
+	queue_redraw()
+
+func _editor_erase(cell: Vector2i) -> void:
+	walls.erase(cell)
+	turret_positions.erase(cell)
+	queue_redraw()
+
+func _select_brush(i: int) -> void:
+	editor_brush = i
+	if wall_btn:
+		wall_btn.button_pressed = (i == 0)
+	if turret_btn:
+		turret_btn.button_pressed = (i == 1)
+
+func _change_radius(delta: int) -> void:
+	map_radius = clampi(map_radius + delta, 1, 10)
+	_prune_map()
+	total_hexes = all_cells().size()
+	_fit_hex_size()
+	_recenter()
+	if radius_label:
+		radius_label.text = "半径 %d" % map_radius
+	queue_redraw()
+
+func _open_import_dialog() -> void:
+	file_dialog_purpose = 0
+	file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	file_dialog.current_dir = ProjectSettings.globalize_path("res://maps")
+	file_dialog.popup_centered()
+
+func _open_export_dialog() -> void:
+	file_dialog_purpose = 1
+	file_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	file_dialog.current_dir = ProjectSettings.globalize_path("res://maps")
+	file_dialog.popup_centered()
+
+func _on_file_selected(path: String) -> void:
+	if file_dialog_purpose == 0:
+		_import_map(path)
+	else:
+		_export_map(path)
+
+func _build_editor_ui() -> void:
+	editor_layer = CanvasLayer.new()
+	editor_layer.layer = 10
+	editor_layer.visible = false
+	add_child(editor_layer)
+
+	var panel := PanelContainer.new()
+	editor_layer.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	panel.add_child(margin)
+
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 8)
+	margin.add_child(hbox)
+
+	var lbl := Label.new()
+	lbl.text = "地图编辑："
+	hbox.add_child(lbl)
+
+	var group := ButtonGroup.new()
+	wall_btn = Button.new()
+	wall_btn.text = "墙"
+	wall_btn.toggle_mode = true
+	wall_btn.button_group = group
+	wall_btn.button_pressed = true
+	wall_btn.pressed.connect(_select_brush.bind(0))
+	hbox.add_child(wall_btn)
+
+	turret_btn = Button.new()
+	turret_btn.text = "炮台"
+	turret_btn.toggle_mode = true
+	turret_btn.button_group = group
+	turret_btn.pressed.connect(_select_brush.bind(1))
+	hbox.add_child(turret_btn)
+
+	hbox.add_child(VSeparator.new())
+
+	var minus := Button.new()
+	minus.text = "-"
+	minus.pressed.connect(_change_radius.bind(-1))
+	hbox.add_child(minus)
+
+	radius_label = Label.new()
+	radius_label.text = "半径 %d" % map_radius
+	hbox.add_child(radius_label)
+
+	var plus := Button.new()
+	plus.text = "+"
+	plus.pressed.connect(_change_radius.bind(1))
+	hbox.add_child(plus)
+
+	hbox.add_child(VSeparator.new())
+
+	var import_btn := Button.new()
+	import_btn.text = "导入 JSON"
+	import_btn.pressed.connect(_open_import_dialog)
+	hbox.add_child(import_btn)
+
+	var export_btn := Button.new()
+	export_btn.text = "导出 JSON"
+	export_btn.pressed.connect(_open_export_dialog)
+	hbox.add_child(export_btn)
+
+	# 先添加子节点再设置锚点，确保按实际内容尺寸居中于顶部
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE, 12)
+
+func _build_file_dialog() -> void:
+	file_dialog = FileDialog.new()
+	file_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	file_dialog.add_filter("*.json", "JSON 文件")
+	file_dialog.file_selected.connect(_on_file_selected)
+	add_child(file_dialog)
 
 # ---------------------------------------------------------------------------
 # 污染与扩散
@@ -635,7 +872,7 @@ func _build_hud() -> void:
 	title_row.add_child(close_tut)
 
 	info_label = Label.new()
-	info_label.text = "在右下角选择要部署的核心类型：\n· 扩散核心（径向）：污染身下地块，并每隔一段时间向周围所有相邻地块扩散。\n· 定向核心：部署后需点击相邻地块选择延伸方向，其污染的地块会沿该方向扩散。\n墙阻挡污染且不可部署；核心到期后其污染地块保留但不再扩散。\n每个敌方炮台每隔一段时间攻击，清除离自己最近的污染地块。\n污染到达所有敌方炮台所在地块则获胜；所有核心结束而仍有存活炮台则失败。\n按 R 打开控制台调整数值。"
+	info_label.text = "在右下角选择要部署的核心类型：\n· 扩散核心（径向）：污染身下地块，并每隔一段时间向周围所有相邻地块扩散。\n· 定向核心：部署后需点击相邻地块选择延伸方向，其污染的地块会沿该方向扩散。\n墙阻挡污染且不可部署；核心到期后其污染地块保留但不再扩散。\n每个敌方炮台每隔一段时间攻击，清除离自己最近的污染地块。\n污染到达所有敌方炮台所在地块则获胜；所有核心结束而仍有存活炮台则失败。\n按 R 打开控制台调整数值；按 Tab 切换编辑/游玩模式。"
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info_label.custom_minimum_size = Vector2(460, 0)
 	tutorial_box.add_child(info_label)
@@ -659,14 +896,19 @@ func _build_hud() -> void:
 	reset_button.pressed.connect(_reset)
 	hbox.add_child(reset_button)
 
+	mode_button = Button.new()
+	mode_button.text = "编辑模式"
+	mode_button.pressed.connect(_toggle_mode)
+	hbox.add_child(mode_button)
+
 func _build_core_selector() -> void:
 	core_buttons.clear()
-	var layer := CanvasLayer.new()
-	layer.layer = 10
-	add_child(layer)
+	core_selector_layer = CanvasLayer.new()
+	core_selector_layer.layer = 10
+	add_child(core_selector_layer)
 
 	var panel := PanelContainer.new()
-	layer.add_child(panel)
+	core_selector_layer.add_child(panel)
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 12)
@@ -719,6 +961,9 @@ func _set_status(text: String) -> void:
 		status_label.text = text
 
 func _update_status() -> void:
+	if mode == Mode.EDIT:
+		_set_status("编辑模式：左键放置（墙/炮台），右键擦除；工具栏可调半径、导入/导出 JSON")
+		return
 	match phase:
 		Phase.DEPLOY:
 			if awaiting_direction:
