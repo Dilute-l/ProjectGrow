@@ -23,10 +23,17 @@ func draw() -> void:
 		var owner_type: String = game.turrets.covering_type(cell)
 		if owner_type != "":
 			draw_hex(game.geometry.hex_center(cell), game.hex_size - 1.2, Color(1.0, 0.35, 0.35, 0.16))
-	# 可部署的最外围一圈提示（部署与扩散阶段都可继续部署）
+	# 可部署提示（部署与扩散阶段都可继续部署）
 	if game.mode == game.Mode.PLAY and (game.phase == game.Phase.DEPLOY or game.phase == game.Phase.RUNNING):
+		var anywhere := false
+		if game.selected_core >= 0 and game.selected_core < game.core_types.size():
+			var t: Dictionary = game.core_types[game.selected_core]
+			var bm = game.map_data.behavior_for_mode(str(t.get("mode", "")))
+			anywhere = bm.deploy_anywhere()
 		for cell in game.geometry.all_cells():
-			if game.geometry.is_edge(cell) and not game.walls.has(cell) and not game.turret_positions.has(cell):
+			if game.walls.has(cell) or game.turret_positions.has(cell) or game.units.has(cell):
+				continue
+			if anywhere or game.geometry.is_edge(cell):
 				game.draw_arc(game.geometry.hex_center(cell), game.hex_size * 0.55, 0.0, TAU, 24, Color(0.8, 1.0, 1.0, 0.30), 2.0)
 	# 墙（内部实心块 + 边框）
 	for cell in game.walls:
@@ -111,8 +118,15 @@ func tile_color(cell: Vector2i) -> Color:
 	if cell == game.hover_cell and not game.turret_positions.has(cell) and not game.units.has(cell):
 		if game.mode == game.Mode.EDIT:
 			return game.COL_TILE_HOVER
-		if (game.phase == game.Phase.DEPLOY or game.phase == game.Phase.RUNNING) and game.geometry.is_edge(cell):
-			return game.COL_TILE_HOVER
+		if game.phase == game.Phase.DEPLOY or game.phase == game.Phase.RUNNING:
+			# 选中可任意部署的核心时，内层也可悬停高亮
+			var anywhere := false
+			if game.selected_core >= 0 and game.selected_core < game.core_types.size():
+				var t: Dictionary = game.core_types[game.selected_core]
+				var bm = game.map_data.behavior_for_mode(str(t.get("mode", "")))
+				anywhere = bm.deploy_anywhere()
+			if anywhere or game.geometry.is_edge(cell):
+				return game.COL_TILE_HOVER
 	return game.COL_TILE
 
 func draw_hex(center: Vector2, size: float, col: Color) -> void:

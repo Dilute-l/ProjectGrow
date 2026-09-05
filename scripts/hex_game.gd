@@ -36,6 +36,8 @@ const LEVEL_PATHS: Array[String] = [
 var level_index := 0
 # 本局已通关数（随机关卡选关的“完成总关卡数”；每通关一关 +1，新一局清零）
 var cleared_levels := 0
+# 失败宽限计时：失败条件满足后累计满 0.5 秒才判负（避免核心与最后敌人同时消失时误判）
+var lose_grace := 0.0
 const CORES_PATH := "res://maps/cores.json"   # 核心数据文件
 
 const HEX_SIZE_DEFAULT := 26.0              # 六边形中心到顶点的距离（像素，默认）
@@ -292,14 +294,7 @@ func _process(delta: float) -> void:
 			# 核心耗尽：从 units 移除、节点变暗保留（污染地块仍在）
 			units.erase(cell)
 			n.mark_corpse()
-	# 2) 所有核心已结束：停止蔓延；若费用不足以部署任何核心才失败
-	if units.is_empty():
-		if _should_lose():
-			phase = Phase.LOST
-		hud.update_status()
-		queue_redraw()
-		return
-	# 3)+4) 各核心独立扩散：每颗存活核心各自计时、只蔓延自己的树（owner==uid）。
+	# 2) 各核心独立扩散：每颗存活核心各自计时、只蔓延自己的树（owner==uid）。
 	# 间隔 = 该模式基准间隔 × 该核心词条乘数 × 所在格特殊地块 × 道具急速增殖。
 	for cell in units.keys():
 		var n: PlayerCore = units[cell]
@@ -335,8 +330,13 @@ func _process(delta: float) -> void:
 			queue_redraw()
 	if attacked and tutorial_gate == "attack":
 		guide.on_attack()
+	# 失败判定：满足失败条件后累计满 0.5 秒才判负，避免核心与最后敌人同时消失时误判
 	if _should_lose():
-		phase = Phase.LOST
+		lose_grace += delta
+		if lose_grace >= 0.5:
+			phase = Phase.LOST
+	else:
+		lose_grace = 0.0
 	spread.free_orphan_cores()
 	hud.update_status()
 	queue_redraw()
@@ -742,7 +742,7 @@ func _toggle_pause() -> void:
 	if pause_button != null:
 		pause_button.text = "继续" if paused else "暂停"
 	if paused:
-		hud.set_status("已暂停（右上角可继续 / 调速）")
+		hud.set_status("已暂停（空格继续 / F 调速；仍可部署核心）")
 	else:
 		hud.update_status()
 	queue_redraw()
@@ -756,12 +756,25 @@ func _cycle_speed() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if reward_layer != null and reward_layer.visible:
 		return  # 奖励界面弹出时屏蔽游戏输入
-	if paused:
-		return  # 暂停时屏蔽游戏输入（右上角按钮仍可用）
 	if buff_overview_open:
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 			hud.close_buff_overview()
 		return  # 词条总览打开时屏蔽游戏输入
+	# 全局快捷键：F 倍速、空格暂停（暂停中也生效）
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_F:
+			_cycle_speed()
+			return
+		if event.keycode == KEY_SPACE:
+			_toggle_pause()
+			return
+	if paused:
+		# 暂停时：仍允许部署/移除核心（鼠标），其余输入屏蔽
+		if console_open:
+			return
+		if mode != Mode.EDIT and event is InputEventMouseButton and event.pressed:
+			_handle_deploy_mouse(event)
+		return
 	if tutorial_active:
 		return
 	if tutorial_gate == "deploy" and event is InputEventKey:
@@ -791,28 +804,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		hover_cell = geometry.pixel_to_hex(event.position)
 		queue_redraw()
 	elif event is InputEventMouseButton and event.pressed:
-		var cell := geometry.pixel_to_hex(event.position)
-		if phase == Phase.DEPLOY or phase == Phase.RUNNING:
-			# 道具瞄准：优先于普通部署/拆除；左键选择目标、右键取消
-			if items != null and items.is_aiming():
-				if event.button_index == MOUSE_BUTTON_LEFT:
-					items.try_use_at(cell)
-				elif event.button_index == MOUSE_BUTTON_RIGHT:
-					items.cancel_arm()
-				queue_redraw()
-				return
-			if awaiting_direction:
-				if event.button_index == MOUSE_BUTTON_LEFT:
-					if geometry.is_neighbor(cell, pending_cell):
-						deploy.finalize_directional(cell)
-				elif event.button_index == MOUSE_BUTTON_RIGHT:
-					awaiting_direction = false
-					hud.update_status()
-					queue_redraw()
-			elif event.button_index == MOUSE_BUTTON_LEFT:
-				deploy.try_place(cell)
-			elif event.button_index == MOUSE_BUTTON_RIGHT:
-				deploy.try_remove(cell)
+		_handle_deploy_mouse(event)
 	elif event is InputEventKey and event.pressed:
 		# 数字键选择核心类型（与右下角 UI 同步；只按显示顺序对应已解锁核心）
 		var visible_cores: Array[int] = hud.visible_core_indices()
@@ -820,8 +812,33 @@ func _unhandled_input(event: InputEvent) -> void:
 			if event.keycode == KEY_1 + k:
 				hud.select_core(visible_cores[k])
 				return
-		if (event.keycode == KEY_SPACE or event.keycode == KEY_ENTER) and phase == Phase.DEPLOY:
+		if event.keycode == KEY_ENTER and phase == Phase.DEPLOY:
 			deploy.start()
+
+## 部署相关鼠标输入（放置/移除核心、道具瞄准、定向选择）；暂停时也允许部署
+func _handle_deploy_mouse(event: InputEvent) -> void:
+	var cell := geometry.pixel_to_hex(event.position)
+	if phase == Phase.DEPLOY or phase == Phase.RUNNING:
+		# 道具瞄准：优先于普通部署/拆除；左键选择目标、右键取消
+		if items != null and items.is_aiming():
+			if event.button_index == MOUSE_BUTTON_LEFT:
+				items.try_use_at(cell)
+			elif event.button_index == MOUSE_BUTTON_RIGHT:
+				items.cancel_arm()
+			queue_redraw()
+			return
+		if awaiting_direction:
+			if event.button_index == MOUSE_BUTTON_LEFT:
+				if geometry.is_neighbor(cell, pending_cell):
+					deploy.finalize_directional(cell)
+			elif event.button_index == MOUSE_BUTTON_RIGHT:
+				awaiting_direction = false
+				hud.update_status()
+				queue_redraw()
+		elif event.button_index == MOUSE_BUTTON_LEFT:
+			deploy.try_place(cell)
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			deploy.try_remove(cell)
 
 func _draw() -> void:
 	drawer.draw()
