@@ -29,6 +29,8 @@ func spawn_core(cell: Vector2i, type_idx: int, dir: Vector2i, free: bool = false
 	var n: PlayerCore = CORE_SCENE.instantiate()
 	n.setup(cell, type_idx, cfg, dir, game.hex_size, game.map_offset)
 	n.spawn_time = game.battle_time
+	n.uid = game.next_core_uid
+	game.next_core_uid += 1
 	game.core_container.add_child(n)
 	game.units[cell] = n
 	var pl: Dictionary = n.payload()

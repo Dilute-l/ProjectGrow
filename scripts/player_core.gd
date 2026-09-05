@@ -53,6 +53,9 @@ var config: Dictionary = {}
 var remaining := 0.0
 ## 本核心的部署时刻（战斗时间，秒；由接线方在 spawn 时写入，供限时类词条判断）
 var spawn_time := 0.0
+## 本核心实例的唯一标识（由接线方在 spawn 时分配；污染地块用 owner 标记归属，
+## 用于“核心失效后其产生的地块不再向外扩散”）
+var uid := -1
 ## 定向模式的方向（轴向偏移）；其它模式保持 Vector2i.ZERO
 var direction := Vector2i.ZERO
 # 渲染上下文（由接线方在生成时与窗口/地图尺寸变化时同步）
@@ -96,10 +99,11 @@ func behavior() -> CoreMode:
 	return b
 
 ## 本核心放置后应写入 polluted 的载荷（交给主脚本 _pollute_with）。
-## 载荷里附带 source = 本核心所在格，记录该污染地块由哪个核心扩散而来。
+## 载荷里附带 source = 本核心所在格；owner = 本核心 uid，用于“失效后停止外扩”。
 func payload() -> Dictionary:
 	var p: Dictionary = behavior().make_payload(direction)
 	p["source"] = coord
+	p["owner"] = uid
 	return p
 
 ## 本核心是否属于定向类（部署时需选方向）

@@ -4,16 +4,16 @@
 	  "id": "spread",
 	  "name": "扩散核心",
 	  "mode": "radial",
-	  "duration": 15.0,
-	  "spread_interval": 0.9,
+	  "duration": 30,
+	  "spread_interval": 5,
 	  "color": "#3fc1ff"
 	},
 	{
 	  "id": "beam",
 	  "name": "定向核心",
 	  "mode": "directional",
-	  "duration": 20.0,
-	  "spread_interval": 0.6,
+	  "duration": 60,
+	  "spread_interval": 3,
 	  "color": "#7dff5a",
 	"unlocked_by_default": true
 	},
@@ -29,8 +29,8 @@
 	  "id": "speedy",
 	  "name": "高速核心",
 	  "mode": "speedy",
-	  "duration": 8.0,
-	  "spread_interval": 0.3,
+	  "duration": 15,
+	  "spread_interval": 1,
 	  "color": "#FF6969"
 	}
   ]

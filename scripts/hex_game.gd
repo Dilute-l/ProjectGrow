@@ -64,6 +64,7 @@ var core_types: Array = []     # 每个元素为 Dictionary：{id,name,mode,dura
 # 解锁核心（局内）：新一局只解锁 cores.json 中 unlocked_by_default=true 的核心（默认「定向核心」），
 # 其余核心作为通关掉落供玩家挑选（见 hex_rewards.gd）
 var unlocked_core_ids: Array = []
+var next_core_uid := 1            # 核心实例 uid 自增分配（污染地块归属标记用）
 
 const COL_BG           := Color("0d1321")
 const COL_TILE         := Color("243045")

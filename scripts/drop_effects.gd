@@ -218,6 +218,7 @@ func on_core_deployed(n: PlayerCore, cell: Vector2i) -> void:
 					"source": cell,
 					"origin_id": core_id,
 					"origin_spawn_time": n.spawn_time,
+					"owner": n.uid,
 					"hp": 1,
 				})
 	if has(core_id, "deploy_gain_cost"):

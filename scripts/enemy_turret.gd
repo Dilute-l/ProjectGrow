@@ -59,10 +59,10 @@ const NO_TARGET := Vector2i(2147483647, 2147483647)  # “无目标”哨兵值
 
 # 敌方炮台类型：名称 -> {range(攻击范围，格), interval_mult(攻速倍率，相对基础间隔)}
 const TURRET_TYPES := {
-	"basic": {"range": 3, "interval_mult": 1.0},   # 基础
-	"sniper": {"range": 4, "interval_mult": 1.8},  # 范围大一格、攻速更慢
-	"rapid": {"range": 2, "interval_mult": 0.6},   # 范围小一格、攻速更快
-	"beam": {"range": 4, "interval_mult": 2.5},    # 直线清除：范围4，攻击间隔长
+	"basic": {"range": 3, "interval_mult": 3},   # 基础
+	"sniper": {"range": 4, "interval_mult": 5},  # 范围大一格、攻速更慢
+	"rapid": {"range": 2, "interval_mult": 1.5},   # 范围小一格、攻速更快
+	"beam": {"range": 4, "interval_mult": 8},    # 直线清除：范围4，攻击间隔长
 }
 
 # 穿过炮台的 3 条直线（每对相反方向构成一条直线），用于直线清除型炮台
