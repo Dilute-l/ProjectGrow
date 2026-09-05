@@ -1,40 +1,40 @@
 {
   "items": [
-    {
-      "id": "speed_x2_core",
-      "name": "急速增殖",
-      "desc": "点选一颗已部署的核心：其蔓延速度翻倍（与该核心已有的一切加速/减速乘算）",
-      "color": "#5cd8ff",
-      "target": "core",
-      "effect": "core_spread_x2",
-      "icon": "⚡"
-    },
-    {
-      "id": "slow_turret_30",
-      "name": "迟缓孢子",
-      "desc": "点选一座敌方炮台：其攻击速度减半（攻击间隔 ×2），持续 30 秒",
-      "color": "#8ae29a",
-      "target": "turret",
-      "effect": "turret_slow_30",
-      "icon": "🐌"
-    },
-    {
-      "id": "life_x2_core",
-      "name": "延寿灵液",
-      "desc": "点选一颗已部署的核心：其剩余生存时间 +100%（按该核心原始生存时长的 100% 增加）",
-      "color": "#d8b4ff",
-      "target": "core",
-      "effect": "core_life_x2",
-      "icon": "💧"
-    },
-    {
-      "id": "burst_tentacle",
-      "name": "触手爆发",
-      "desc": "点选一个地块：该地块与其所有相邻地块直接生成触手污染（不能在敌方炮台上生成）",
-      "color": "#ff9a5c",
-      "target": "tile",
-      "effect": "burst_tentacle",
-      "icon": "🌱"
-    }
+	{
+	  "id": "speed_x2_core",
+	  "name": "急速增殖",
+	  "desc": "点选一颗已部署的核心：其蔓延速度翻倍（与该核心已有的一切加速/减速乘算）",
+	  "color": "#5cd8ff",
+	  "target": "core",
+	  "effect": "core_spread_x2",
+	  "icon": "⚡"
+	},
+	{
+	  "id": "slow_turret_30",
+	  "name": "迟缓孢子",
+	  "desc": "点选一座敌方炮台：其攻击速度减半（攻击间隔 ×2），持续 30 秒",
+	  "color": "#8ae29a",
+	  "target": "turret",
+	  "effect": "turret_slow_30",
+	  "icon": "🐌"
+	},
+	{
+	  "id": "life_x2_core",
+	  "name": "延寿灵液",
+	  "desc": "点选一颗已部署的核心：其剩余生存时间 +100%（按该核心原始生存时长的 100% 增加）",
+	  "color": "#d8b4ff",
+	  "target": "core",
+	  "effect": "core_life_x2",
+	  "icon": "💧"
+	},
+	{
+	  "id": "burst_tentacle",
+	  "name": "触手爆发",
+	  "desc": "点选一个地块：该地块与其所有相邻地块直接生成触手污染（不能在敌方炮台上生成）",
+	  "color": "#ff9a5c",
+	  "target": "tile",
+	  "effect": "burst_tentacle",
+	  "icon": "🌱"
+	}
   ]
 }

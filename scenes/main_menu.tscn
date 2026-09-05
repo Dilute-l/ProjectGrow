@@ -1,0 +1,122 @@
+[gd_scene format=3 uid="uid://bxuxjyfalqpn1"]
+
+[ext_resource type="Script" uid="uid://smxe4q2j4qah" path="res://scenes/main_menu.gd" id="1_ekxnf"]
+[ext_resource type="Texture2D" uid="uid://dt8mvvpduuld" path="res://images/Something.png" id="1_l6cm7"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_vkqoe"]
+bg_color = Color(0.5333498, 2.690509e-05, 0.41579118, 1)
+corner_radius_top_left = 32
+corner_radius_bottom_left = 32
+shadow_color = Color(1, 0.33489007, 0.75640327, 0.6)
+shadow_size = 5
+shadow_offset = Vector2(0, 2.21)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_vue75"]
+bg_color = Color(0.48521358, 2.242893e-05, 0.37718245, 1)
+corner_radius_top_left = 32
+corner_radius_bottom_left = 32
+shadow_color = Color(1, 0.33489007, 0.75640327, 0.6)
+shadow_size = 5
+shadow_offset = Vector2(0, 2.21)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_l6cm7"]
+bg_color = Color(0.8843144, 8.586526e-05, 0.6964958, 1)
+corner_radius_top_left = 32
+corner_radius_bottom_left = 32
+shadow_color = Color(1, 0.33489007, 0.75640327, 0.6)
+shadow_size = 5
+shadow_offset = Vector2(0, 2.21)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ekxnf"]
+bg_color = Color(0.5333498, 2.690509e-05, 0.41579118, 1)
+corner_radius_top_left = 32
+corner_radius_bottom_left = 32
+shadow_color = Color(1, 0.33489007, 0.75640327, 0.6)
+shadow_size = 5
+shadow_offset = Vector2(0, 2.21)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bqqt6"]
+bg_color = Color(0.5333498, 2.690509e-05, 0.41579118, 1)
+corner_radius_top_left = 32
+corner_radius_bottom_left = 32
+shadow_color = Color(1, 0.33489007, 0.75640327, 0.6)
+shadow_size = 5
+shadow_offset = Vector2(0, 2.21)
+
+[node name="MainMenu" type="Control" unique_id=1464975414]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_ekxnf")
+
+[node name="Something" type="Sprite2D" parent="." unique_id=956704085]
+position = Vector2(800.00006, 448)
+scale = Vector2(0.45610034, 0.3612903)
+texture = ExtResource("1_l6cm7")
+
+[node name="StartGame" type="Button" parent="." unique_id=30569977]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -432.0
+offset_top = -386.0
+offset_bottom = -258.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_font_sizes/font_size = 50
+theme_override_styles/normal = SubResource("StyleBoxFlat_vkqoe")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_vue75")
+theme_override_styles/hover = SubResource("StyleBoxFlat_l6cm7")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_ekxnf")
+theme_override_styles/focus = SubResource("StyleBoxFlat_bqqt6")
+text = "开始游戏"
+
+[node name="Credits" type="Button" parent="." unique_id=683740888]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -432.0
+offset_top = -130.0
+offset_bottom = -2.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_font_sizes/font_size = 50
+theme_override_styles/normal = SubResource("StyleBoxFlat_vkqoe")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_vue75")
+theme_override_styles/hover = SubResource("StyleBoxFlat_l6cm7")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_ekxnf")
+theme_override_styles/focus = SubResource("StyleBoxFlat_bqqt6")
+text = "制作组"
+
+[node name="Quit" type="Button" parent="." unique_id=1456373433]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -432.0
+offset_top = 126.0
+offset_bottom = 254.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_font_sizes/font_size = 50
+theme_override_styles/normal = SubResource("StyleBoxFlat_vkqoe")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_vue75")
+theme_override_styles/hover = SubResource("StyleBoxFlat_l6cm7")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_ekxnf")
+theme_override_styles/focus = SubResource("StyleBoxFlat_bqqt6")
+text = "退出游戏"
+
+[connection signal="pressed" from="StartGame" to="." method="_on_start_game_pressed"]
+[connection signal="pressed" from="Credits" to="." method="_on_credits_pressed"]
+[connection signal="pressed" from="Quit" to="." method="_on_quit_pressed"]

@@ -1,0 +1,45 @@
+[gd_scene format=3 uid="uid://becnhrat4nm5w"]
+
+[ext_resource type="Script" uid="uid://cdetxdr0ttydw" path="res://scenes/credits.gd" id="1_0bpdh"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_vkqoe"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_co6qv"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_gjxql"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_yddip"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_w7t7a"]
+
+[node name="Credits" type="Control" unique_id=198189362]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_0bpdh")
+
+[node name="Label" type="Label" parent="." unique_id=519618390]
+layout_mode = 0
+offset_left = 256.0
+offset_top = 240.0
+offset_right = 1431.0
+offset_bottom = 384.0
+theme_override_font_sizes/font_size = 101
+text = "这里暂时还什么都没有……"
+
+[node name="Button" type="Button" parent="." unique_id=1936833717]
+layout_mode = 0
+offset_right = 214.0
+offset_bottom = 128.0
+theme_override_font_sizes/font_size = 72
+theme_override_styles/normal = SubResource("StyleBoxEmpty_vkqoe")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_co6qv")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_gjxql")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_yddip")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_w7t7a")
+text = "←返回"
+
+[connection signal="pressed" from="Button" to="." method="_on_button_pressed"]
