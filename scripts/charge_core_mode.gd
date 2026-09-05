@@ -25,14 +25,14 @@ func spread_candidates(_cell: Vector2i, _payload: Dictionary) -> Array[Vector2i]
 func deploy_anywhere() -> bool:
 	return true
 
-## 到期爆发：周围三格内（距离 1~3）所有地块
-func burst_candidates(cell: Vector2i) -> Array[Vector2i]:
+## 到期爆发：周围 burst_range 圈内（距离 1~burst_range）所有地块
+func burst_candidates(cell: Vector2i, burst_range: int = 3) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
-	for dq in range(-3, 4):
-		for dr in range(-3, 4):
+	for dq in range(-burst_range, burst_range + 1):
+		for dr in range(-burst_range, burst_range + 1):
 			var n := cell + Vector2i(dq, dr)
 			var d := _cube_dist(n, cell)
-			if d >= 1 and d <= 3:
+			if d >= 1 and d <= burst_range:
 				out.append(n)
 	return out
 

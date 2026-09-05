@@ -59,6 +59,53 @@ var game
 # 运行时叠加状态：core_id(String) -> { effect_id(String) -> 层数(int) }
 var grants: Dictionary = {}
 
+# ---------------------------------------------------------------------------
+# 核心升级（战后掉落可获得「已有核心」的升级；每种核心至多升级一次）
+# ---------------------------------------------------------------------------
+## 每种核心的升级效果：core id -> { stat: 作用属性, delta: 增量, label: 展示文案 }
+##   - beam   傲慢之眼：消耗费用 -5（15 → 10）
+##   - spread 色孽之宫：扩散间隔 -1s（5s → 4s）
+##   - charge 怠惰之心：爆发范围 +1（3 圈 → 4 圈）
+##   - speedy 饕餮之吻：核心存在时间 +5s（15s → 20s）
+const CORE_UPGRADES := {
+	"beam":   {"stat": "cost",     "delta": -5.0, "label": "消耗费用--"},
+	"spread": {"stat": "interval", "delta": -1.0, "label": "扩散间隔--"},
+	"charge": {"stat": "range",    "delta": 1.0,  "label": "扩散范围++"},
+	"speedy": {"stat": "duration", "delta": 5.0,  "label": "核心存在时间++"},
+}
+
+## 升级奖励卡的背景文案（core id -> 文案；仅用于「升级」战利品卡，不用于解锁卡与信息框）
+const DEMON_FLAVORS := {
+	"beam":   "魔王的双眼不会闭合，它在凝视着你的一举一动",
+	"spread": "魔王的子宫不会枯竭，它随时准备孕育泛滥的生命",
+	"speedy": "魔王的齿舌不会停歇，它正在准备撕咬你的一切血肉",
+	"charge": "魔王的心脏不会安眠，它始终等待瞬间和迸发",
+}
+
+## 该核心是否已升级
+func is_upgraded(core_id: String) -> bool:
+	return game.upgraded_core_ids.has(core_id)
+
+## 升级该核心（每种核心至多一次）
+func upgrade_core(core_id: String) -> void:
+	if not game.upgraded_core_ids.has(core_id):
+		game.upgraded_core_ids.append(core_id)
+
+## 该核心的升级定义；未定义返回空字典
+func upgrade_def(core_id: String) -> Dictionary:
+	return CORE_UPGRADES.get(core_id, {})
+
+## 该核心的升级展示文案（如「消耗费用--」）
+func upgrade_label(core_id: String) -> String:
+	return str(upgrade_def(core_id).get("label", ""))
+
+## 该核心 id 对应的模式名（mode ↔ core id 目前一一对应）
+func mode_of_core_id(core_id: String) -> String:
+	for t in game.core_types:
+		if str(t.get("id", "")) == core_id:
+			return str(t.get("mode", ""))
+	return ""
+
 # 控制台授予 UI 控件
 var grant_core_option: OptionButton
 var grant_effect_option: OptionButton
@@ -142,14 +189,106 @@ func core_ids_for_mode(mode_name: String) -> Array:
 # ---------------------------------------------------------------------------
 # 部署费用
 # ---------------------------------------------------------------------------
-## 部署该触手（type_idx）的实际费用：基础费用（来自 cores.json 的 cost）+ 贵胄光环自身 +5，其它在场光环 -2
+## 部署该触手（type_idx）的实际费用：基础费用（来自 cores.json 的 cost）+ 贵胄光环自身 +5，其它在场光环 -2；已升级的核心再叠加升级增量
 func deploy_cost(type_idx: int) -> int:
 	var core_id := core_id_of_type(type_idx)
 	var cost: int = int(game.core_types[type_idx].get("cost", 1))
+	var up: Dictionary = upgrade_def(core_id)
+	if is_upgraded(core_id) and str(up.get("stat", "")) == "cost":
+		cost += int(up.get("delta", 0.0))
 	if has(core_id, "cost_swap_aura"):
 		cost += 5
 	cost -= 2 * aura_count_excluding(core_id)
 	return maxi(cost, 0)
+
+## 该模式的扩散间隔（秒）：模式基准间隔（mode_intervals）+ 已升级核心的间隔增量
+func spread_interval_for(mode_name: String, fallback: float) -> float:
+	var base: float = float(game.mode_intervals.get(mode_name, fallback))
+	for cid in game.upgraded_core_ids:
+		var up: Dictionary = upgrade_def(cid)
+		if str(up.get("stat", "")) == "interval" and mode_of_core_id(cid) == mode_name:
+			base += float(up.get("delta", 0.0))
+	return base
+
+## 核心存在时间（秒）：基础生存时间（已乘长寿等词条）再叠加升级增量
+func apply_duration_upgrade(core_id: String, base_duration: float) -> float:
+	var up: Dictionary = upgrade_def(core_id)
+	if is_upgraded(core_id) and str(up.get("stat", "")) == "duration":
+		return base_duration + float(up.get("delta", 0.0))
+	return base_duration
+
+## 爆发范围（圈数，蓄力类核心用）：默认 3 圈，已升级再叠加增量
+func burst_range_for(core_id: String) -> int:
+	var base := 3
+	var up: Dictionary = upgrade_def(core_id)
+	if is_upgraded(core_id) and str(up.get("stat", "")) == "range":
+		base += int(up.get("delta", 0.0))
+	return base
+
+## 核心存在时间（秒）：基础时长 + 升级增量（不含长寿等词条乘算，仅用于展示文案）
+func duration_for(type_idx: int) -> float:
+	var cid := core_id_of_type(type_idx)
+	var base := float(game.core_types[type_idx].get("duration", 15.0))
+	return apply_duration_upgrade(cid, base)
+
+## 一位数 → 中文数字（用于「扩散 N 圈」文案）
+const CN_NUMBERS: Array = ["一", "二", "三", "四", "五", "六", "七", "八", "九"]
+func cn_number(n: int) -> String:
+	if n >= 1 and n <= 9:
+		return CN_NUMBERS[n - 1]
+	return str(n)
+
+## 升级卡高亮辅助：changed=true 时用金色 BBCode 包裹该数值
+func _hl(v: String, changed: bool) -> String:
+	return "[color=#ffd166]" + v + "[/color]" if changed else v
+
+## 生成核心的数值描述（数字一律用升级后的值）；highlight=true 时把「升级变化的那一项」用金色 BBCode 高亮。
+## 返回：数值行 + "\n" + 原描述的第二行（背景文案）。
+func upgraded_desc(type_idx: int, highlight: bool, demon: bool = true) -> String:
+	var t: Dictionary = game.core_types[type_idx]
+	var cid := str(t.get("id", ""))
+	var mode_name := str(t.get("mode", ""))
+	var bm := CoreMode.for_mode(mode_name)
+	var up: Dictionary = upgrade_def(cid)
+	var changed := str(up.get("stat", ""))
+	var delta := float(up.get("delta", 0.0))
+	# 直接描述「升级版」：在基础数值上无条件叠加升级增量（不依赖当前是否已升级）
+	var cost := int(t.get("cost", 1))
+	var dur := float(t.get("duration", 15.0))
+	var fallback := bm.interval_fallback() if bm != null else 0.9
+	var itv := float(game.mode_intervals.get(mode_name, fallback))
+	var rng := 3
+	match changed:
+		"cost":
+			cost += int(delta)
+		"duration":
+			dur += delta
+		"interval":
+			itv += delta
+		"range":
+			rng += int(delta)
+	var cost_s := _hl(str(cost), highlight and changed == "cost")
+	var dur_s := _hl(str(int(dur)), highlight and changed == "duration")
+	var itv_s := _hl(str(int(itv)), highlight and changed == "interval")
+	var rng_s := _hl(cn_number(rng), highlight and changed == "range")
+	var line := ""
+	match mode_name:
+		"directional", "speedy":
+			line = "%s消耗，核心存在%ss，每%ss向指定方向扩散一格" % [cost_s, dur_s, itv_s]
+		"radial":
+			line = "%s消耗，核心存在%ss，每%ss向外扩散一圈" % [cost_s, dur_s, itv_s]
+		"charge":
+			line = "%s消耗，核心存在%ss，核心死亡后向外扩散%s圈" % [cost_s, dur_s, rng_s]
+		_:
+			line = "%s消耗，核心存在%ss" % [cost_s, dur_s]
+	# 背景文案：升级卡用「魔王」文案（demon=true）；信息框用原描述（demon=false）
+	if demon:
+		line += "\n" + str(DEMON_FLAVORS.get(cid, ""))
+	elif bm != null:
+		var parts := bm.description().split("\n")
+		if parts.size() > 1:
+			line += "\n" + str(parts[1])
+	return line
 
 ## 当前在场的、除 core_id 外拥有「贵胄光环」的触手种类数
 func aura_count_excluding(core_id: String) -> int:

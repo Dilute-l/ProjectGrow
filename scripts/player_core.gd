@@ -117,7 +117,7 @@ func is_directional() -> bool:
 
 ## 本核心到期时的一次性爆发候选格（默认空；蓄力类核心覆写）
 func burst_cells() -> Array[Vector2i]:
-	return behavior().burst_candidates(coord)
+	return behavior().burst_candidates(coord, int(config.get("burst_range", 3)))
 
 # ---------------------------------------------------------------------------
 # 渲染（本节点自行绘制；主脚本不再代画）

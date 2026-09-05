@@ -64,7 +64,8 @@ func spread_candidates(cell: Vector2i, payload: Dictionary) -> Array[Vector2i]:
 	return []
 
 ## 核心到期时一次性爆发的候选格（默认无；蓄力类核心覆写，用于“存活结束后爆发”）
-func burst_candidates(_cell: Vector2i) -> Array[Vector2i]:
+## burst_range：爆发圈数（升级「扩散范围++」后增大）
+func burst_candidates(_cell: Vector2i, _burst_range: int = 3) -> Array[Vector2i]:
 	return []
 
 ## 当 cores.json 未给出该模式的扩散间隔时的默认值（秒）

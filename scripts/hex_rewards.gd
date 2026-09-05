@@ -54,6 +54,7 @@ func _init(g) -> void:
 ## 新一局开始：根据 cores.json 的 unlocked_by_default 重建解锁集合，并清零通关计数
 func reset_run() -> void:
 	game.unlocked_core_ids = game.map_data.default_unlocked_ids()
+	game.upgraded_core_ids.clear()
 	game.special_pool.clear()
 	game.special_once.clear()
 	_wins = 0
@@ -159,13 +160,16 @@ func _kind_label(kind: String) -> String:
 			return "特殊地块"
 	return kind
 
-## 未解锁核心的候选
+## 核心候选池：未解锁核心 =「新单位」；已解锁但未升级的核心 =「升级」
 func _build_core_pool() -> Array:
 	var out: Array = []
 	for i in range(game.core_types.size()):
+		var cid := str(game.core_types[i].get("id", ""))
 		if is_type_unlocked(i):
-			continue
-		out.append(_make_core_option(i))
+			if not game.drop_effects.is_upgraded(cid):
+				out.append(_make_upgrade_option(i))
+		else:
+			out.append(_make_core_option(i))
 	return out
 
 ## 词条候选：rare=true 稀有词条（非 generic），rare=false 普通词条（generic 四条）
@@ -201,6 +205,24 @@ func _make_core_option(type_idx: int) -> Dictionary:
 		"sub": "解锁 · 费用 %d · %s扩散" % [game.drop_effects.deploy_cost(type_idx), bm.display_name()],
 		"color": game.map_data.core_color(t),
 		"desc": bm.description(),
+	}
+
+## 已解锁核心的「升级」候选（title 带 +，描述末尾附升级效果，供奖励卡高亮）
+func _make_upgrade_option(type_idx: int) -> Dictionary:
+	var t: Dictionary = game.core_types[type_idx]
+	var mode_name := str(t.get("mode", ""))
+	var bm = game.map_data.behavior_for_mode(mode_name)
+	var cid := str(t.get("id", ""))
+	return {
+		"kind": "upgrade",
+		"id": cid,
+		"mode": mode_name,
+		"title": str(t.get("name", "核心")) + "+",
+		"sub": "升级 · %s扩散" % bm.display_name(),
+		"color": game.map_data.core_color(t),
+		"desc": game.drop_effects.upgraded_desc(type_idx, false),
+		"desc_bbcode": game.drop_effects.upgraded_desc(type_idx, true),
+		"upgrade_text": "升级效果：" + game.drop_effects.upgrade_label(cid),
 	}
 
 func _make_buff_option(e: Dictionary, rare: bool) -> Dictionary:
@@ -247,6 +269,8 @@ func apply_option(opt: Dictionary) -> void:
 	match str(opt.get("kind", "")):
 		"core":
 			_unlock_core(str(opt.get("id", "")))
+		"upgrade":
+			_upgrade_core(str(opt.get("id", "")))
 		"buff":
 			_grant_buff(str(opt.get("id", "")))
 		"tile":
@@ -294,6 +318,15 @@ func _unlock_core(core_id: String) -> void:
 	var name := _core_name_of_id(core_id)
 	game.hud.refresh_core_unlocks()
 	game.hud.set_status("已解锁核心「%s」" % name)
+	game.hud.update_status()
+
+func _upgrade_core(core_id: String) -> void:
+	if game.drop_effects.is_upgraded(core_id):
+		return
+	game.drop_effects.upgrade_core(core_id)
+	var name := _core_name_of_id(core_id) + "+"
+	game.hud.refresh_core_unlocks()
+	game.hud.set_status("已升级核心「%s」" % name)
 	game.hud.update_status()
 
 func _grant_buff(effect_id: String) -> void:

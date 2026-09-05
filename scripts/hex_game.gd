@@ -87,6 +87,7 @@ var core_types: Array = []     # 每个元素为 Dictionary：{id,name,mode,dura
 # 解锁核心（局内）：新一局只解锁 cores.json 中 unlocked_by_default=true 的核心（默认「傲慢之眼」），
 # 其余核心作为通关掉落供玩家挑选（见 hex_rewards.gd）
 var unlocked_core_ids: Array = []
+var upgraded_core_ids: Array = []   # 本局已升级过的核心 id（每种核心至多升级一次）
 var next_core_uid := 1            # 核心实例 uid 自增分配（污染地块归属标记用）
 
 const COL_BG           := Color("0d1321")
@@ -320,7 +321,7 @@ func _process(delta: float) -> void:
 		var bm := CoreMode.for_mode(m)
 		if bm == null:
 			continue
-		var iv: float = mode_intervals.get(m, bm.interval_fallback()) \
+		var iv: float = drop_effects.spread_interval_for(m, bm.interval_fallback()) \
 				* drop_effects.spread_interval_multiplier_for_core(n) \
 				* _core_terrain_interval_factor(n)
 		if items != null:
@@ -528,6 +529,9 @@ func _make_reward_card(opt: Dictionary) -> Control:
 	card.tooltip_text = str(opt.get("desc", ""))
 	card.gui_input.connect(_on_card_input.bind(opt))
 	var col: Color = opt.get("color", Color.WHITE)
+	var kind := str(opt.get("kind", ""))
+	var is_upgrade := kind == "upgrade"
+	var hl := Color("ffd166")
 	var style := StyleBoxFlat.new()
 	style.bg_color = col.darkened(0.78)
 	style.border_color = col
@@ -550,7 +554,7 @@ func _make_reward_card(opt: Dictionary) -> Control:
 	title.text = str(opt.get("title", "?"))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 20)
-	title.add_theme_color_override("font_color", col.lightened(0.25))
+	title.add_theme_color_override("font_color", hl if is_upgrade else col.lightened(0.25))
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(title)
 
@@ -562,22 +566,47 @@ func _make_reward_card(opt: Dictionary) -> Control:
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(sub)
 
-	var desc := Label.new()
-	desc.text = str(opt.get("desc", ""))
-	desc.add_theme_font_size_override("font_size", 13)
-	desc.add_theme_color_override("font_color", Color("9fb0cc"))
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc.custom_minimum_size = Vector2(0, 56)
+	# 升级卡用 RichTextLabel 以支持 BBCode 高亮变化数值；其余卡保持普通 Label
+	var desc: Control
+	if is_upgrade:
+		var rtl := RichTextLabel.new()
+		rtl.bbcode_enabled = true
+		rtl.text = str(opt.get("desc_bbcode", ""))
+		rtl.fit_content = true
+		rtl.scroll_active = false
+		rtl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		rtl.add_theme_font_size_override("normal_font_size", 13)
+		rtl.add_theme_color_override("default_color", Color("9fb0cc"))
+		rtl.custom_minimum_size = Vector2(0, 56)
+		desc = rtl
+	else:
+		var lbl := Label.new()
+		lbl.text = str(opt.get("desc", ""))
+		lbl.add_theme_font_size_override("font_size", 13)
+		lbl.add_theme_color_override("font_color", Color("9fb0cc"))
+		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		lbl.custom_minimum_size = Vector2(0, 56)
+		desc = lbl
 	box.add_child(desc)
 
+	# 升级卡：在描述末尾用高亮色追加升级效果
+	if is_upgrade:
+		var eff := Label.new()
+		eff.text = str(opt.get("upgrade_text", ""))
+		eff.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		eff.add_theme_font_size_override("font_size", 13)
+		eff.add_theme_color_override("font_color", hl)
+		eff.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(eff)
+
 	var tag := Label.new()
-	tag.text = "点击领取"
+	tag.text = "点击升级" if is_upgrade else "点击领取"
 	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tag.add_theme_font_size_override("font_size", 12)
 	tag.add_theme_color_override("font_color", col)
 	box.add_child(tag)
-	# 新核心奖励：在卡片底部显示对应核心的图标
-	if str(opt.get("kind", "")) == "core":
+	# 新核心 / 升级奖励：在卡片底部显示对应核心的图标
+	if kind == "core" or kind == "upgrade":
 		var icon: Texture2D = CoreSelectorUI.CORE_ICONS.get(str(opt.get("mode", "")), null)
 		if icon != null:
 			var icon_rect := TextureRect.new()

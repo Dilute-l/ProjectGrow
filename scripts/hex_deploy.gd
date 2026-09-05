@@ -48,6 +48,9 @@ func spawn_core(cell: Vector2i, type_idx: int, dir: Vector2i, free: bool = false
 	# 长寿之地：存活时间再延长
 	if kind_def.has("duration_mult"):
 		cfg["duration"] *= float(kind_def["duration_mult"])
+	# 核心升级：存在时间 / 爆发范围
+	cfg["duration"] = game.drop_effects.apply_duration_upgrade(core_id, cfg["duration"])
+	cfg["burst_range"] = game.drop_effects.burst_range_for(core_id)
 	var n: PlayerCore = CORE_SCENE.instantiate()
 	n.setup(cell, type_idx, cfg, dir, game.hex_size, game.map_offset)
 	n.spawn_time = game.battle_time
@@ -168,6 +171,8 @@ func _transform_unit(n: PlayerCore) -> bool:
 	var cfg: Dictionary = src_cfg.duplicate()
 	var new_id := str(src_cfg.get("id", ""))
 	cfg["duration"] = float(src_cfg.get("duration", 15.0)) * game.drop_effects.survival_multiplier(new_id)
+	cfg["duration"] = game.drop_effects.apply_duration_upgrade(new_id, cfg["duration"])
+	cfg["burst_range"] = game.drop_effects.burst_range_for(new_id)
 	# 变身发生在战斗开始前：清掉旧身份留下的污染足迹（含部署类词条铺的相邻格），
 	# 再按新类型重写本格载荷；uid 不变，后续 owner 归属仍有效。
 	var old_uid := n.uid

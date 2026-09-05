@@ -26,7 +26,7 @@ var core_grid: Control
 var info_panel: PanelContainer
 var info_title: Label
 var info_sub: Label
-var info_desc: Label
+var info_desc: RichTextLabel
 
 ## 各核心 mode -> 本体贴图（图标）
 const CORE_ICONS := {
@@ -161,10 +161,13 @@ func _build_info_box() -> void:
 	info_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(info_sub)
 
-	info_desc = Label.new()
-	info_desc.add_theme_font_size_override("font_size", 13)
-	info_desc.add_theme_color_override("font_color", Color("9fb0cc"))
+	info_desc = RichTextLabel.new()
+	info_desc.bbcode_enabled = true
+	info_desc.fit_content = true
+	info_desc.scroll_active = false
 	info_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info_desc.add_theme_font_size_override("normal_font_size", 13)
+	info_desc.add_theme_color_override("default_color", Color("9fb0cc"))
 	info_desc.custom_minimum_size = Vector2(260, 0)
 	box.add_child(info_desc)
 
@@ -184,10 +187,15 @@ func _refresh_info_box() -> void:
 	var mode_name := str(t.get("mode", ""))
 	var bm = game.map_data.behavior_for_mode(mode_name)
 	var col: Color = game.map_data.core_color(t)
-	info_title.text = str(t.get("name", "核心"))
-	info_title.add_theme_color_override("font_color", col.lightened(0.25))
+	var cid := str(t.get("id", ""))
+	var upgraded: bool = game.drop_effects.is_upgraded(cid)
+	info_title.text = str(t.get("name", "核心")) + ("+" if upgraded else "")
+	info_title.add_theme_color_override("font_color", Color("ffd166") if upgraded else col.lightened(0.25))
 	info_sub.text = "费用 %d · %s扩散" % [game.drop_effects.deploy_cost(game.selected_core), bm.display_name()]
-	info_desc.text = bm.description()
+	if upgraded:
+		info_desc.text = game.drop_effects.upgraded_desc(game.selected_core, true, false)
+	else:
+		info_desc.text = bm.description()
 	var style := StyleBoxFlat.new()
 	style.bg_color = col.darkened(0.78)
 	style.border_color = col
