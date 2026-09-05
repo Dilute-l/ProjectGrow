@@ -173,6 +173,9 @@ var game_speed := 1.0
 var game_controls_layer: CanvasLayer
 var pause_button: Button
 var speed_button: Button
+# 暂停菜单（ESC 打开）：变暗遮罩 + 继续游戏 / 重置 / 回到主菜单
+var pause_menu_open := false
+var pause_menu_layer: CanvasLayer
 
 # 部署费用条（位于核心类型选择区上方）
 var cost_bar: ProgressBar
@@ -251,6 +254,7 @@ func _ready() -> void:
 	_build_reward_screen()
 	_build_unique_target_screen()
 	_build_game_controls()
+	_build_pause_menu()
 	_update_ui_scale()
 	# 图层顺序（z_index）：触手 GroundOverlay(0) < 我方核心 PlayerCores(10) < 敌方炮台 TurretOverlay(20)
 	var ground := get_node("GroundOverlay")
@@ -269,6 +273,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if paused:
 		return
+	if pause_menu_open:
+		return  # 暂停菜单打开时暂停游戏
 	if tutorial_active:
 		return
 	if console_open:
@@ -392,6 +398,7 @@ func _update_ui_scale() -> void:
 	_set_layer_transform(core_selector_layer, s, Vector2(vs.x * (1.0 - s), vs.y * (1.0 - s)))
 	_set_layer_transform(game_controls_layer, s, Vector2(vs.x * (1.0 - s), 0.0))
 	_set_layer_transform(reward_layer, s, Vector2(vs.x * (1.0 - s) * 0.5, vs.y * (1.0 - s) * 0.5))
+	_set_layer_transform(pause_menu_layer, s, Vector2(vs.x * (1.0 - s) * 0.5, vs.y * (1.0 - s) * 0.5))
 	# 教程层（若正在播放）也按居中锚点缩放
 	if tutorial_node != null and is_instance_valid(tutorial_node):
 		_set_layer_transform(tutorial_node, s, Vector2(vs.x * (1.0 - s) * 0.5, vs.y * (1.0 - s) * 0.5))
@@ -764,9 +771,100 @@ func _cycle_speed() -> void:
 	if speed_button != null:
 		speed_button.text = str(int(game_speed)) + "x"
 
+# ---------------------------------------------------------------------------
+# 暂停菜单（ESC 打开）：变暗遮罩 + 继续游戏 / 重置 / 回到主菜单
+# ---------------------------------------------------------------------------
+func _build_pause_menu() -> void:
+	pause_menu_layer = CanvasLayer.new()
+	pause_menu_layer.layer = 30
+	pause_menu_layer.visible = false
+	add_child(pause_menu_layer)
+
+	var dim := ColorRect.new()
+	dim.color = Color(0.0, 0.0, 0.0, 0.68)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	pause_menu_layer.add_child(dim)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_STOP
+	pause_menu_layer.add_child(center)
+
+	var panel := PanelContainer.new()
+	center.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 40)
+	margin.add_theme_constant_override("margin_top", 30)
+	margin.add_theme_constant_override("margin_right", 40)
+	margin.add_theme_constant_override("margin_bottom", 30)
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 16)
+	margin.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "暂停"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 32)
+	vbox.add_child(title)
+
+	var continue_btn := Button.new()
+	continue_btn.text = "继续游戏"
+	continue_btn.custom_minimum_size = Vector2(240, 0)
+	continue_btn.pressed.connect(_close_pause_menu)
+	vbox.add_child(continue_btn)
+
+	var reset_btn := Button.new()
+	reset_btn.text = "重置"
+	reset_btn.custom_minimum_size = Vector2(240, 0)
+	reset_btn.pressed.connect(_on_pause_menu_reset)
+	vbox.add_child(reset_btn)
+
+	var menu_btn := Button.new()
+	menu_btn.text = "回到主菜单"
+	menu_btn.custom_minimum_size = Vector2(240, 0)
+	menu_btn.pressed.connect(_on_pause_menu_main_menu)
+	vbox.add_child(menu_btn)
+
+func _open_pause_menu() -> void:
+	pause_menu_open = true
+	if pause_menu_layer != null:
+		pause_menu_layer.visible = true
+	queue_redraw()
+
+func _close_pause_menu() -> void:
+	pause_menu_open = false
+	if pause_menu_layer != null:
+		pause_menu_layer.visible = false
+	queue_redraw()
+
+## 重置：与左上角“重置”按钮完全一致（deploy.reset()）
+func _on_pause_menu_reset() -> void:
+	_close_pause_menu()
+	deploy.reset()
+
+func _on_pause_menu_main_menu() -> void:
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+
+## ESC 统一处理：优先关控制台 / 取消道具瞄准，否则打开暂停菜单
+func _handle_escape() -> void:
+	if console_open:
+		console.close()
+	elif items != null and items.is_aiming():
+		items.cancel_arm()
+	else:
+		_open_pause_menu()
+
 func _unhandled_input(event: InputEvent) -> void:
 	if reward_layer != null and reward_layer.visible:
 		return  # 奖励界面弹出时屏蔽游戏输入
+	if pause_menu_open:
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+			_close_pause_menu()
+		return  # 暂停菜单打开时屏蔽其余输入
 	if buff_overview_open:
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 			hud.close_buff_overview()
@@ -780,7 +878,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_toggle_pause()
 			return
 	if paused:
-		# 暂停时：仍允许部署/移除核心（鼠标），其余输入屏蔽
+		# 暂停时：仍允许部署/移除核心（鼠标），ESC 打开暂停菜单，其余输入屏蔽
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+			_handle_escape()
+			return
 		if console_open:
 			return
 		if mode != Mode.EDIT and event is InputEventMouseButton and event.pressed:
@@ -798,10 +899,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				console.open()
 			return
 		if event.keycode == KEY_ESCAPE:
-			if console_open:
-				console.close()
-			elif items != null and items.is_aiming():
-				items.cancel_arm()
+			_handle_escape()
 			return
 		if event.keycode == KEY_TAB:
 			editor.toggle_mode()

@@ -5,15 +5,19 @@ extends Node2D
 ## 只读取父节点 Main（hex_game.gd）公开的 turret_positions / turret_types /
 ## turret_map / geometry / hex_size / mode / phase / COL_TURRET / COL_TURRET_DEAD。
 
-# 敌方炮台贴图（basic/sniper 有贴图；rapid/beam 保持矢量本体）
+# 敌方炮台贴图（basic/sniper/rapid/sweeper 有贴图；beam/mortar 保持矢量本体）
 const TEX_TURRET_BASIC := preload("res://images/magica/enemy_basic.png")
 const TEX_TURRET_SNIPER := preload("res://images/magica/enemy_sniper.png")
+const TEX_TURRET_RAPID := preload("res://images/magica/enemy_rapid.png")
+const TEX_TURRET_SWEEPER := preload("res://images/magica/enemy_sweeper.png")
 # 贴图实测几何（原图 6554×6554）：六边形边长 = 5000/√3 ≈ 2886.75，中心 (3135.5, 3364.25)
 const TURRET_ART_EDGE := 2886.75
 const TURRET_ART_CENTER := Vector2(3135.5, 3364.25)
 # 贴图主导色（实测 alpha>128 平均），用于充能环着色
 const TURRET_BASIC_COLOR := Color("#9EA07C")
 const TURRET_SNIPER_COLOR := Color("#956E97")
+const TURRET_RAPID_COLOR := Color("#EED272")
+const TURRET_SWEEPER_COLOR := Color("#D46480")
 
 func _process(_delta: float) -> void:
 	queue_redraw()  # 充能环进度与存活状态每帧变化，直接每帧重绘（炮台数量少，开销可忽略）
@@ -34,7 +38,7 @@ func _draw() -> void:
 			if tex != null:
 				_draw_turret_texture(tc, tex, main.hex_size)
 			else:
-				# 无贴图的类型（rapid/beam）：沿用原矢量本体
+				# 无贴图的类型（beam/mortar）：沿用原矢量本体
 				draw_circle(tc, main.hex_size * 0.52, body_col)
 				draw_arc(tc, main.hex_size * 0.52, 0.0, TAU, 24, ring_col, 2.0)
 				var dir: Vector2 = Vector2(0.0, -1.0) * main.hex_size * 0.82
@@ -73,15 +77,23 @@ func _turret_ring_color(type_name: String, main) -> Color:
 			return TURRET_BASIC_COLOR.lightened(0.4)
 		"sniper":
 			return TURRET_SNIPER_COLOR.lightened(0.4)
+		"rapid":
+			return TURRET_RAPID_COLOR.lightened(0.4)
+		"sweeper":
+			return TURRET_SWEEPER_COLOR.lightened(0.4)
 	return _turret_body_color(type_name, main).lightened(0.55)
 
-## 炮台类型 -> 本体贴图；无贴图的类型（rapid/beam）返回 null
+## 炮台类型 -> 本体贴图；无贴图的类型（beam/mortar）返回 null
 func _turret_texture(type_name: String) -> Texture2D:
 	match type_name:
 		"basic":
 			return TEX_TURRET_BASIC
 		"sniper":
 			return TEX_TURRET_SNIPER
+		"rapid":
+			return TEX_TURRET_RAPID
+		"sweeper":
+			return TEX_TURRET_SWEEPER
 	return null
 
 ## 在 center 绘制一张炮台贴图：以贴图内六边形中心为锚点对齐格子中心
