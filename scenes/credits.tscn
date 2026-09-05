@@ -1,7 +1,7 @@
 [gd_scene format=4 uid="uid://becnhrat4nm5w"]
 
 [ext_resource type="Script" uid="uid://cdetxdr0ttydw" path="res://scenes/credits.gd" id="1_0bpdh"]
-[ext_resource type="Texture2D" uid="uid://1wdbiqk8egop" path="res://images/8001b9398a54707286a297f344485a303546959897954538.png" id="2_2fbfq"]
+[ext_resource type="Texture2D" uid="uid://1wdbiqk8egop" path="res://images/DSH.png" id="2_2fbfq"]
 [ext_resource type="AudioStream" uid="uid://cr5v5bjjrmoll" path="res://audio/squ.mp3" id="3_8gwij"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_vkqoe"]
