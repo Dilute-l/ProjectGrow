@@ -280,7 +280,9 @@ func _process(delta: float) -> void:
 			var burst := n.burst_cells()
 			if not burst.is_empty():
 				spread.burst_from(cell, burst, n.mode(), str(n.config.get("id", "")), n.spawn_time)
-		deploy.remove_core(cell)
+			# 核心耗尽：从 units 移除、节点变暗保留（污染地块仍在）
+			units.erase(cell)
+			n.mark_corpse()
 	# 2) 所有核心已结束：停止蔓延；若费用不足以部署任何核心才失败
 	if units.is_empty():
 		if _should_lose():

@@ -87,12 +87,14 @@ func burst_from(origin: Vector2i, candidates: Array, mode_name: String, origin_i
 	for c in newly:
 		pollute_with(c, newly[c])
 
-## 敌方攻击清除目标地块后，units 中对应核心已被 erase；此函数释放残留的场景实例
+## 敌方攻击清除目标地块后，units 中对应核心已被 erase；此函数释放残留的场景实例。
+## 核心耗尽后的「变暗尸体」节点（polluted 仍含其格）保留，直到其污染被清除。
 func free_orphan_cores() -> void:
 	if game.core_container == null or not is_instance_valid(game.core_container):
 		return
 	for child in game.core_container.get_children():
-		if not game.units.has((child as PlayerCore).coord):
+		var pc := child as PlayerCore
+		if not game.units.has(pc.coord) and not game.polluted.has(pc.coord):
 			child.queue_free()
 
 ## 蔓延结算后逐炮台判定污染损毁；全部损毁 => 胜利
