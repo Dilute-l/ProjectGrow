@@ -26,6 +26,8 @@ func rebuild() -> void:
 		var t: EnemyTurret = TURRET_SCENE.instantiate()
 		var type_name: String = str(game.turret_types.get(p, "basic"))
 		t.setup(p, type_name, game.enemy_attack_interval)
+		if game.turret_interval_overrides.has(type_name):
+			t.attack_interval = float(game.turret_interval_overrides[type_name])
 		game.turret_container.add_child(t)
 		game.turret_map[p] = t
 

@@ -5,8 +5,11 @@ extends RefCounted
 ##
 ## 职责：每关胜利(WON)后提供 3 选 1 的掉落候选（offer），并在玩家选择后应用。
 ## 解锁规则：本局(每次进入 hex_game = 一局)开始时，只解锁 cores.json 里
-## 标记 unlocked_by_default 的核心（默认只有「定向核心」）；其余核心与
-## 掉落词条(BUFF)一起作为候选，供玩家每关 WON 后挑选。
+## 标记 unlocked_by_default 的核心（默认只有「定向核心」）。
+## 掉落类型规则：每场 WON 只出现【一种】类型的候选 ——
+##   - 首胜（本局第 1 次通关）：必定是新核心选择；
+##   - 之后每场：75% 概率为增强 BUFF，25% 概率为新核心。
+## buff 与新核心不会在同一次掉落里混出。
 ##
 ## 【掉落类型接口】每个候选是一个 Dictionary：
 ##   { "kind": <String>, "id": <String>, "title": <String>, "sub": <String>,
@@ -28,9 +31,10 @@ func _init(g) -> void:
 # ---------------------------------------------------------------------------
 # 解锁集合（局内）
 # ---------------------------------------------------------------------------
-## 新一局开始：根据 cores.json 的 unlocked_by_default 重建解锁集合
+## 新一局开始：根据 cores.json 的 unlocked_by_default 重建解锁集合，并清零通关计数
 func reset_run() -> void:
 	game.unlocked_core_ids = game.map_data.default_unlocked_ids()
+	_wins = 0
 
 ## type_idx 对应的核心是否已解锁
 func is_type_unlocked(type_idx: int) -> bool:
@@ -43,26 +47,48 @@ func unlocked_ids() -> Array:
 	return game.unlocked_core_ids
 
 # ---------------------------------------------------------------------------
-# 候选生成（3 选 1）
+# 候选生成（掉落类型二选一：每场只出 buff 或核心中的一种）
 # ---------------------------------------------------------------------------
-## 生成本次 WON 后的候选（默认 3 个，不足则给现有全部）
+## 掉落类型概率（非首胜）：75% 增强 BUFF，25% 新核心
+const BUFF_ROLL_CHANCE := 0.75
+
+## 本局已通关（生成过掉落）的次数；第 1 次通关必定是“新核心”选择
+var _wins := 0
+
+## 生成本次 WON 后的候选（同一批只含一种类型，3 选 1，不足则给现有全部）
 func build_options() -> Array:
-	var pool: Array = []
-	# 1) 未解锁的核心
-	for i in range(game.core_types.size()):
-		if is_type_unlocked(i):
-			continue
-		pool.append(_make_core_option(i))
-	# 2) 还能叠加的 BUFF 词条
-	for e in DropEffects.effect_defs():
-		if _buff_eligible(e):
-			pool.append(_make_buff_option(e))
+	_wins += 1
+	var core_pool := _build_core_pool()
+	var buff_pool := _build_buff_pool()
+	# 首胜强制核心；否则按 75/25 掷类型
+	var kind := "buff" if (_wins > 1 and randf() < BUFF_ROLL_CHANCE) else "core"
+	var pool := buff_pool if kind == "buff" else core_pool
+	# 所选类型没有可用候选时，兜底换另一种；都没有则为空（界面显示提示）
+	if pool.is_empty():
+		pool = core_pool if kind == "buff" else buff_pool
 	if pool.is_empty():
 		return []
 	pool.shuffle()
 	if pool.size() > OFFER_COUNT:
 		pool = pool.slice(0, OFFER_COUNT)
 	return pool
+
+## 未解锁核心的候选
+func _build_core_pool() -> Array:
+	var out: Array = []
+	for i in range(game.core_types.size()):
+		if is_type_unlocked(i):
+			continue
+		out.append(_make_core_option(i))
+	return out
+
+## 还能叠加的 BUFF 词条候选
+func _build_buff_pool() -> Array:
+	var out: Array = []
+	for e in DropEffects.effect_defs():
+		if _buff_eligible(e):
+			out.append(_make_buff_option(e))
+	return out
 
 func _make_core_option(type_idx: int) -> Dictionary:
 	var t: Dictionary = game.core_types[type_idx]

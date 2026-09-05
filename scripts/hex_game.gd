@@ -58,6 +58,7 @@ var map_radius := 0                            # 六边形地图半径（中心�
 var walls: Dictionary = {}                    # Vector2i -> true
 var turret_positions: Array[Vector2i] = []    # 所有敌方炮台位置
 var turret_types: Dictionary = {}             # 炮台位置 -> 类型名（basic/sniper/rapid）
+var turret_interval_overrides: Dictionary = {} # 类型名 -> 攻击间隔覆盖（秒；控制台临时平衡用，重建关卡时仍生效）
 
 # 核心数据（从文件读取）
 var core_types: Array = []     # 每个元素为 Dictionary：{id,name,mode,duration,spread_interval,color,unlocked_by_default}
@@ -116,7 +117,6 @@ var core_selector_panel: PanelContainer = null
 # 控制台
 var console_open := false
 var console_layer: CanvasLayer
-var sb_enemy: SpinBox
 
 var status_label: Label
 var start_button: Button
