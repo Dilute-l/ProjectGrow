@@ -47,6 +47,10 @@ func mode() -> String:
 func needs_direction() -> bool:
 	return false
 
+## 部署时是否无视「只能部署在最外圈」的位置限制（蓄力核心等覆写为 true）
+func deploy_anywhere() -> bool:
+	return false
+
 ## 为该模式的一块污染地块构造载荷，存入主脚本的 polluted 字典：
 ##   polluted[cell] = { "mode": <模式名>, "dir": <方向> }
 ## dir 仅定向类模式有意义；径向等模式可忽略

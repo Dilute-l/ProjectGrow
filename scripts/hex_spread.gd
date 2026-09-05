@@ -34,7 +34,8 @@ func spread_core(owner_uid: int, mode_name: String, bm: CoreMode) -> void:
 		if owner != owner_uid:
 			continue  # 只扩这颗核心自己的树；无主历史地块冻结
 		for n: Vector2i in bm.spread_candidates(cell, pl):
-			if game.geometry.in_bounds(n) and not game.polluted.has(n) and not game.walls.has(n) and not newly.has(n):
+			# 触手可覆盖其它触手已占据的地块（后来的覆盖先来的）；但不覆盖核心所在格与墙
+			if game.geometry.in_bounds(n) and not game.walls.has(n) and not game.units.has(n) and not newly.has(n):
 				var np: Dictionary = pl.duplicate()
 				# 无方向模式（径向等）：补上触手方向 = 从来源核心指向该地块，映射到最近邻域
 				var ndir: Vector2i = np.get("dir", Vector2i.ZERO)

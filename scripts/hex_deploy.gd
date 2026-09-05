@@ -82,12 +82,14 @@ func try_place(cell: Vector2i) -> void:
 		return
 	if game.turret_positions.has(cell):
 		return
-	if not game.geometry.is_edge(cell):
-		game.hud.set_status("只能在最外围一圈部署单位")
-		return
 	if game.units.has(cell):
 		return
 	var t: Dictionary = game.core_types[game.selected_core]
+	# 蓄力核心等可无视「最外圈」限制；其余核心仍限最外圈
+	if not game.map_data.behavior_for_mode(str(t.get("mode", ""))).deploy_anywhere() \
+			and not game.geometry.is_edge(cell):
+		game.hud.set_status("只能在最外围一圈部署单位")
+		return
 	var cost: int = game.drop_effects.deploy_cost(game.selected_core)
 	if game.deploy_points < cost:
 		game.hud.set_status("部署费用不足：需要 %d 点，剩余 %d 点" % [cost, game.deploy_points])

@@ -6,7 +6,7 @@
 	  "mode": "radial",
 	  "duration": 30,
 	  "spread_interval": 5,
-	  "cost": 2,
+	  "cost": 15,
 	  "color": "#3fc1ff"
 	},
 	{
