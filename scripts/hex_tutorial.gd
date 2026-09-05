@@ -41,8 +41,7 @@ func on_highlight() -> void:
 	# 聚光灯照右下角核心选择区，且取消已选核心，引导玩家先选核心类型
 	game.tutorial_spotlight = "core"
 	game.selected_core = -1
-	for b in game.core_buttons:
-		b.button_pressed = false
+	game.core_selector_ui.refresh_button_states()
 	game.hud.update_status()
 	update_spotlight()
 	game.queue_redraw()

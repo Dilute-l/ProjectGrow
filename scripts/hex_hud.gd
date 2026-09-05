@@ -64,75 +64,7 @@ func build_hud() -> void:
 	hbox.add_child(game.mode_button)
 
 func build_core_selector() -> void:
-	game.core_buttons.clear()
-	game.core_selector_layer = CanvasLayer.new()
-	game.core_selector_layer.layer = 10
-	game.add_child(game.core_selector_layer)
-
-	var panel := PanelContainer.new()
-	game.core_selector_layer.add_child(panel)
-	game.core_selector_panel = panel
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 12)
-	margin.add_theme_constant_override("margin_top", 10)
-	margin.add_theme_constant_override("margin_right", 12)
-	margin.add_theme_constant_override("margin_bottom", 10)
-	panel.add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 6)
-	margin.add_child(vbox)
-	core_buttons_box = vbox
-
-	# 一次性道具区（位于本局词条上方，与词条按钮在同一右下栏）
-	if game.items != null:
-		game.items.build_bar(vbox)
-
-	# 本局词条总览按钮（位于部署费用条上方）
-	var buff_row := HBoxContainer.new()
-	buff_row.add_theme_constant_override("separation", 6)
-	vbox.add_child(buff_row)
-	buff_button = Button.new()
-	buff_button.text = "🧪 本局词条"
-	buff_button.custom_minimum_size = Vector2(140, 0)
-	buff_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	buff_button.pressed.connect(toggle_buff_overview)
-	buff_row.add_child(buff_button)
-
-	# 部署费用条（实时显示剩余费用；位于核心类型上方）
-	var cost_row := HBoxContainer.new()
-	cost_row.add_theme_constant_override("separation", 6)
-	vbox.add_child(cost_row)
-	var cost_caption := Label.new()
-	cost_caption.text = "部署费用"
-	cost_caption.add_theme_font_size_override("font_size", 14)
-	cost_row.add_child(cost_caption)
-	game.cost_bar = ProgressBar.new()
-	game.cost_bar.min_value = 0.0
-	game.cost_bar.max_value = float(PlayerCore.DEPLOY_COST_MAX)
-	game.cost_bar.value = float(game.deploy_points)
-	game.cost_bar.show_percentage = false
-	game.cost_bar.custom_minimum_size = Vector2(100, 0)
-	cost_row.add_child(game.cost_bar)
-	game.cost_value_label = Label.new()
-	game.cost_value_label.add_theme_font_size_override("font_size", 14)
-	cost_row.add_child(game.cost_value_label)
-	update_cost_ui()
-
-	var title := Label.new()
-	title.text = "选择核心类型"
-	title.add_theme_font_size_override("font_size", 16)
-	vbox.add_child(title)
-
-	# 只显示已解锁的核心；未解锁的直接不显示（不再以 🔒 占位）
-	_populate_core_buttons(vbox)
-
-	# 先添加子节点再设置锚点，确保按实际内容尺寸定位到右下角
-	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
-	# 内容变多（解锁更多核心）时向左/向上生长，右下角固定不动，避免面板随种类增加而偏移
-	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	game.core_selector_ui.build()
 
 ## 重建核心选择按钮：仅列出已解锁核心，每个按钮用 meta("core_type") 记录其 core_types 索引
 func _populate_core_buttons(parent: Control) -> void:
@@ -163,27 +95,10 @@ func _populate_core_buttons(parent: Control) -> void:
 
 ## 已解锁核心的 type_idx 列表（按 core_types 顺序），供数字键等按显示顺序选择
 func visible_core_indices() -> Array[int]:
-	var out: Array[int] = []
-	for i in range(game.core_types.size()):
-		if _type_unlocked(i):
-			out.append(i)
-	return out
+	return game.core_selector_ui.visible_core_indices()
 
 func select_core(i: int) -> void:
-	if i < 0 or i >= game.core_types.size():
-		return
-	if not _type_unlocked(i):
-		set_status("「%s」尚未解锁（通关后的掉落中可选）" % str(game.core_types[i].get("name", "核心")))
-		return
-	game.selected_core = i
-	game.awaiting_direction = false
-	for b in game.core_buttons:
-		b.button_pressed = (int(b.get_meta("core_type", -1)) == i)
-	if game.tutorial_spotlight == "core":
-		game.tutorial_spotlight = "map"
-		game.guide.update_spotlight()
-	update_status()
-	game.queue_redraw()
+	game.core_selector_ui.select_core(i)
 
 func set_status(text: String) -> void:
 	if game.status_label:
@@ -197,22 +112,14 @@ func _type_unlocked(i: int) -> bool:
 
 ## 解锁状态变化后刷新选择栏：重新生成按钮（只显示已解锁核心），并复位失效的选中项
 func refresh_core_unlocks() -> void:
-	if game.selected_core >= 0 and not _type_unlocked(game.selected_core):
-		game.selected_core = -1
-	if core_buttons_box != null:
-		_populate_core_buttons(core_buttons_box)
-	update_status()
-	game.queue_redraw()
+	game.core_selector_ui.refresh_core_unlocks()
 
 ## 部署费用条文本
 func cost_text() -> String:
 	return "%d/%d" % [game.deploy_points, PlayerCore.DEPLOY_COST_MAX]
 
 func update_cost_ui() -> void:
-	if game.cost_bar != null:
-		game.cost_bar.value = float(game.deploy_points)
-	if game.cost_value_label != null:
-		game.cost_value_label.text = cost_text()
+	game.core_selector_ui.update_cost_ui()
 
 func update_status() -> void:
 	if game.mode == game.Mode.EDIT:

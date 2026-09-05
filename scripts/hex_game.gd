@@ -145,7 +145,7 @@ var buff_overview_open := false
 
 var status_label: Label
 var start_button: Button
-var core_buttons: Array[Button] = []
+var core_buttons: Array = []
 var core_selector_layer: CanvasLayer
 var hud_layer: CanvasLayer
 
@@ -208,6 +208,7 @@ var drop_effects: DropEffects
 var rewards: HexRewards
 var level_select: HexLevelSelect
 var items: HexItems
+var core_selector_ui: CoreSelectorUI
 
 func _create_modules() -> void:
 	map_data = HexMap.new(self)
@@ -224,6 +225,7 @@ func _create_modules() -> void:
 	rewards = HexRewards.new(self)
 	level_select = HexLevelSelect.new(self)
 	items = HexItems.new(self)
+	core_selector_ui = CoreSelectorUI.new(self)
 
 # ---------------------------------------------------------------------------
 # 生命周期
@@ -242,7 +244,7 @@ func _ready() -> void:
 	geometry.recenter()
 	hud.build_hud()
 	console.build_console()
-	hud.build_core_selector()
+	core_selector_ui.build()
 	hud.build_buff_overview()
 	editor.build_editor_ui()
 	editor.build_file_dialog()
@@ -721,9 +723,13 @@ func _build_game_controls() -> void:
 	margin.add_theme_constant_override("margin_bottom", 8)
 	panel.add_child(margin)
 
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 6)
+	margin.add_child(vbox)
+
 	var hbox := HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", 8)
-	margin.add_child(hbox)
+	vbox.add_child(hbox)
 
 	speed_button = Button.new()
 	speed_button.text = "1x"
@@ -734,6 +740,10 @@ func _build_game_controls() -> void:
 	pause_button.text = "暂停"
 	pause_button.pressed.connect(_toggle_pause)
 	hbox.add_child(pause_button)
+
+	# 道具栏（倍速与暂停下方）
+	if items != null:
+		items.build_bar(vbox)
 
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
 
