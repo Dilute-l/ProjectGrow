@@ -177,7 +177,7 @@ func roll_tile_hp(core_id: String) -> int:
 		return 2
 	return 1
 
-## 该模式的蔓延间隔乘算系数（<1 更快）
+## 该模式的蔓延间隔乘算系数（<1 更快；模式级汇总版，保留给旧调用方）
 func spread_interval_multiplier(mode_name: String) -> float:
 	var mult := 1.0
 	for core_id in core_ids_for_mode(mode_name):
@@ -194,33 +194,53 @@ func spread_interval_multiplier(mode_name: String) -> float:
 			break
 	return mult
 
-## 蔓延结算后：按概率额外随机蔓延一格（蔓延分支）
-func extra_spread(mode_name: String) -> void:
-	var p := 0.0
-	for core_id in core_ids_for_mode(mode_name):
-		var s := stacks(core_id, "spread_extra_tile")
-		if s > 0:
-			p = 1.0 - (1.0 - p) * pow(0.9, s)
-	if p <= 0.0:
+## 单颗核心的蔓延间隔乘算系数（per-core）：只按这颗核心自己的 id 词条 + 自身初生急速。
+## 用于逐核心扩散计时，使「蔓延加速」只作用于这一颗。
+func spread_interval_multiplier_for_core(n: PlayerCore) -> float:
+	var mult := 1.0
+	var core_id := str(n.config.get("id", ""))
+	var s := stacks(core_id, "spread_interval_down")
+	if s > 0:
+		mult *= pow(0.9, s)
+	if has(core_id, "deploy_haste_5s") and game.battle_time - n.spawn_time <= 5.0:
+		mult *= 0.5
+	return mult
+
+## 蔓延结算后：按概率额外随机蔓延一格（蔓延分支；按该蔓延的 owner 树判定，per-core）
+## owner_uid = 本次蔓延的核心实例 uid（其词条层数决定概率，从其地块树里选基点）。
+func extra_spread_owner(mode_name: String, owner_uid: int) -> void:
+	var core_id := ""
+	for n in game.units.values():
+		var pc := n as PlayerCore
+		if int(pc.uid) == owner_uid:
+			core_id = str(pc.config.get("id", ""))
+			break
+	var s := stacks(core_id, "spread_extra_tile")
+	if s <= 0:
 		return
+	var p := 1.0 - pow(0.9, s)
 	if randf() >= p:
 		return
 	var tiles: Array = []
 	for cell in game.polluted.keys():
-		if str(game.polluted[cell].get("mode", "")) == mode_name:
-			tiles.append(cell)
+		var pl: Dictionary = game.polluted[cell]
+		if str(pl.get("mode", "")) != mode_name:
+			continue
+		if int(pl.get("owner", -1)) != owner_uid:
+			continue  # 只从这颗核心自己的树里选基点
+		tiles.append(cell)
 	if tiles.is_empty():
 		return
 	tiles.shuffle()
 	var base: Vector2i = tiles[0]
-	var pl: Dictionary = game.polluted[base]
+	var pl2: Dictionary = game.polluted[base]
 	var offs: Array = game.NEIGHBORS.duplicate()
 	offs.shuffle()
 	for d in offs:
 		var n: Vector2i = base + d
 		if game.geometry.in_bounds(n) and not game.polluted.has(n) and not game.walls.has(n):
-			var np: Dictionary = pl.duplicate()
-			np["hp"] = roll_tile_hp(str(np.get("origin_id", "")))
+			var np: Dictionary = pl2.duplicate()
+			np["hp"] = roll_tile_hp(core_id)
 			game.spread.pollute_with(n, np)
 			return
 

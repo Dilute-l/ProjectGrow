@@ -85,6 +85,10 @@ func build_core_selector() -> void:
 	margin.add_child(vbox)
 	core_buttons_box = vbox
 
+	# 一次性道具区（位于本局词条上方，与词条按钮在同一右下栏）
+	if game.items != null:
+		game.items.build_bar(vbox)
+
 	# 本局词条总览按钮（位于部署费用条上方）
 	var buff_row := HBoxContainer.new()
 	buff_row.add_theme_constant_override("separation", 6)

@@ -111,7 +111,11 @@ var core_container: Node2D               # 我方核心场景实例容器
 var turret_map: Dictionary = {}            # Vector2i -> EnemyTurret 节点
 var turret_container: Node2D               # 敌方炮台场景实例容器（逻辑节点，不绘制）
 var turret_overlay: TurretOverlay          # 敌方炮台覆盖层（独立绘制，最高图层）
-var mode_spread_timers: Dictionary = {}    # 模式名 -> 该模式扩散累计秒数
+# 每颗核心独立的扩散计时（cell -> 累计秒数）：取代旧的模式级 mode_spread_timers，
+# 使加速/急速之地等效果只作用于“坐在该地块/被点选”的那一颗核心。
+var core_spread_timers: Dictionary = {}
+# 模式级扩散间隔（秒；由 cores.json / 控制台维护，作为每颗核心的基准间隔）
+var mode_spread_timers: Dictionary = {}    # 兼容旧字段：扩散重置时一并清空（不再用于计时）
 var mode_intervals: Dictionary = {}        # 模式名 -> 该模式扩散间隔（秒）
 var hover_cell := Vector2i(999999, 999999)
 var map_offset := Vector2.ZERO
@@ -199,6 +203,7 @@ var console: HexConsole
 var drop_effects: DropEffects
 var rewards: HexRewards
 var level_select: HexLevelSelect
+var items: HexItems
 
 func _create_modules() -> void:
 	map_data = HexMap.new(self)
@@ -214,6 +219,7 @@ func _create_modules() -> void:
 	drop_effects = DropEffects.new(self)
 	rewards = HexRewards.new(self)
 	level_select = HexLevelSelect.new(self)
+	items = HexItems.new(self)
 
 # ---------------------------------------------------------------------------
 # 生命周期
@@ -225,6 +231,7 @@ func _ready() -> void:
 	map_data.register_core_modes()
 	map_data.load_special_tiles()
 	rewards.reset_run()   # 新一局：只解锁默认核心（定向）
+	items.reset_run()     # 新一局：清空一次性道具库存
 	cleared_levels = 0    # 新一局：已通关数清零（随机关卡选关依据）
 	selected_core = clampi(selected_core, -1, core_types.size() - 1)
 	geometry.fit_hex_size()
@@ -290,20 +297,23 @@ func _process(delta: float) -> void:
 		hud.update_status()
 		queue_redraw()
 		return
-	# 3)+4) 各模式扩散：有该模式的存活核心，就按该模式间隔蔓延其污染地块
-	var active_modes: Dictionary = {}
-	for n in units.values():
-		active_modes[n.mode()] = true
-	for m in active_modes:
+	# 3)+4) 各核心独立扩散：每颗存活核心各自计时、只蔓延自己的树（owner==uid）。
+	# 间隔 = 该模式基准间隔 × 该核心词条乘数 × 所在格特殊地块 × 道具急速增殖。
+	for cell in units.keys():
+		var n: PlayerCore = units[cell]
+		var m := n.mode()
 		var bm := CoreMode.for_mode(m)
 		if bm == null:
 			continue
-		var iv: float = mode_intervals.get(m, bm.interval_fallback()) * drop_effects.spread_interval_multiplier(m)
-		iv *= _special_mode_interval_factor(m)
-		mode_spread_timers[m] = mode_spread_timers.get(m, 0.0) + delta
-		if mode_spread_timers[m] >= iv:
-			mode_spread_timers[m] = 0.0
-			spread.spread_mode(m, bm)
+		var iv: float = mode_intervals.get(m, bm.interval_fallback()) \
+				* drop_effects.spread_interval_multiplier_for_core(n) \
+				* _core_terrain_interval_factor(n)
+		if items != null:
+			iv *= items.spread_interval_factor_for_core(n)
+		core_spread_timers[cell] = core_spread_timers.get(cell, 0.0) + delta
+		if core_spread_timers[cell] >= iv:
+			core_spread_timers[cell] = 0.0
+			spread.spread_core(int(n.uid), m, bm)
 	# 5) 炮台摧毁 / 胜利判定
 	spread.check_turret_destruction()
 	if phase == Phase.WON and reward_layer != null and not reward_layer.visible:
@@ -312,6 +322,9 @@ func _process(delta: float) -> void:
 		hud.update_status()
 		queue_redraw()
 		return
+	# 5.5) 道具计时（如炮台减速剩余时间；到期恢复原攻击间隔）
+	if items != null:
+		items.tick(delta)
 	# 6) 敌方攻击（每个存活炮台独立计时）
 	var attacked := false
 	for t in turret_map.values():
@@ -337,19 +350,15 @@ func _should_lose() -> bool:
 			return false  # 还有至少一个已解锁核心可部署
 	return true
 
-## 特殊地块对某模式蔓延间隔的倍率：存在部署于「急速之地」的存活核心则乘其 spread_mult
-func _special_mode_interval_factor(mode_name: String) -> float:
-	var f := 1.0
-	for n in units.values():
-		if n.mode() != mode_name:
-			continue
-		var kid := str(special_tiles.get((n as PlayerCore).coord, ""))
-		if kid == "":
-			continue
-		var def: Dictionary = special_kind_defs.get(kid, {})
-		if def.has("spread_mult"):
-			f = minf(f, float(def["spread_mult"]))
-	return f
+## 该核心所在格的特殊地块对蔓延间隔的倍率（只作用于坐上去的这一颗；例如「急速之地」）
+func _core_terrain_interval_factor(n: PlayerCore) -> float:
+	var kid := str(special_tiles.get(n.coord, ""))
+	if kid == "":
+		return 1.0
+	var def: Dictionary = special_kind_defs.get(kid, {})
+	if def.has("spread_mult"):
+		return float(def["spread_mult"])
+	return 1.0
 
 func _on_viewport_size_changed() -> void:
 	geometry.fit_hex_size()
@@ -765,6 +774,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_ESCAPE:
 			if console_open:
 				console.close()
+			elif items != null and items.is_aiming():
+				items.cancel_arm()
 			return
 		if event.keycode == KEY_TAB:
 			editor.toggle_mode()
@@ -780,6 +791,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.pressed:
 		var cell := geometry.pixel_to_hex(event.position)
 		if phase == Phase.DEPLOY or phase == Phase.RUNNING:
+			# 道具瞄准：优先于普通部署/拆除；左键选择目标、右键取消
+			if items != null and items.is_aiming():
+				if event.button_index == MOUSE_BUTTON_LEFT:
+					items.try_use_at(cell)
+				elif event.button_index == MOUSE_BUTTON_RIGHT:
+					items.cancel_arm()
+				queue_redraw()
+				return
 			if awaiting_direction:
 				if event.button_index == MOUSE_BUTTON_LEFT:
 					if geometry.is_neighbor(cell, pending_cell):

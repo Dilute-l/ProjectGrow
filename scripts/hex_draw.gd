@@ -64,6 +64,12 @@ func draw() -> void:
 			var n: Vector2i = game.pending_cell + d
 			if game.geometry.in_bounds(n) and not game.walls.has(n) and not game.turret_positions.has(n):
 				game.draw_arc(game.geometry.hex_center(n), game.hex_size * 0.3, 0.0, TAU, 16, Color(1.0, 1.0, 1.0, 0.35), 2.0)
+	# 一次性道具瞄准：提示鼠标所指格子是否合法目标
+	if game.items != null and game.items.is_aiming():
+		var hc: Vector2 = game.geometry.hex_center(game.hover_cell)
+		var ok: bool = game.items.can_target(game.hover_cell)
+		var aim_col: Color = Color("6ee7b7") if ok else Color("f87171")
+		game.draw_arc(hc, game.hex_size * 0.62, 0.0, TAU, 24, aim_col, 3.0)
 	_draw_special_hint()
 
 ## 悬停提示：鼠标停留在特殊地块上时，画一个小信息条（名称 + 描述）

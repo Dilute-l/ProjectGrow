@@ -55,6 +55,7 @@ func spawn_core(cell: Vector2i, type_idx: int, dir: Vector2i, free: bool = false
 	game.next_core_uid += 1
 	game.core_container.add_child(n)
 	game.units[cell] = n
+	game.core_spread_timers[cell] = 0.0  # 该核心扩散计时从零开始（每核心独立）
 	var pl: Dictionary = n.payload()
 	pl["origin_id"] = core_id
 	pl["origin_spawn_time"] = n.spawn_time
@@ -219,6 +220,7 @@ func start() -> void:
 	var swap_info: Dictionary = _transform_units_on_swap_tiles()
 	var transformed := int(swap_info.get("count", 0))
 	game.phase = game.Phase.RUNNING
+	game.core_spread_timers.clear()
 	game.mode_spread_timers.clear()
 	game.awaiting_direction = false
 	game.battle_time = 0.0
@@ -246,8 +248,11 @@ func reset() -> void:
 	game.core_container.name = "PlayerCores"
 	game.core_container.z_index = 10
 	game.add_child(game.core_container)
+	game.core_spread_timers.clear()
 	game.mode_spread_timers.clear()
 	game.turrets.rebuild()
+	if game.items != null:
+		game.items.on_round_reset()  # 每轮：清掉绑定在场实例上的道具临时效果
 	game.awaiting_direction = false
 	game.start_button.disabled = (game.mode == game.Mode.EDIT)
 	game.hud.update_cost_ui()

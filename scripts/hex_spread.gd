@@ -2,15 +2,14 @@ class_name HexSpread
 extends RefCounted
 
 ## 污染与扩散 —— 从 scripts/hex_game.gd 拆分出来的模块。
+## 职责：污染字典（polluted）的写入、扩散（按核心实例 owner 树驱动）、炮台损毁判定
+## （胜利判定）、以及清理敌方攻击后残留的核心场景实例。扩散的具体形状/方向规则
+## 由 CoreMode 提供，本模块只做统一的越界/墙/已污染过滤。
 ##
-## 职责：污染字典（polluted）的写入、按模式驱动的扩散、炮台损毁判定（胜利判定）、
-## 以及清理敌方攻击后残留的核心场景实例。扩散的具体形状/方向规则由 CoreMode 提供，
-## 本模块只做统一的越界/墙/已污染过滤。
-##
-## 扩展规则（核心失效即冻结其扩散树）：
-##   polluted 地块载荷带 owner（核心实例 uid）。扩散时，owner 已失效（场上无
-##   对应存活核心）的地块不再向外蔓延；不带 owner 的旧式地块沿用旧规则
-##   （该模式有存活核心即可继续扩散）。
+## 扩散语义（per-core）：每颗存活核心拥有独立计时（见 hex_game.core_spread_timers），
+## 到点后调用 spread_core()，只蔓延「这颗核心自己的树」= polluted 中 owner==uid 的地块；
+## 因此「蔓延加速 / 急速之地」等只作用于坐在该地块、被点选的那一颗核心。
+## 无 owner 的旧式地块（历史遗留）沿用旧规则：随任意一颗同模式存活核心一并蔓延。
 
 var game
 
@@ -21,17 +20,19 @@ func _init(g) -> void:
 func pollute_with(cell: Vector2i, payload: Dictionary) -> void:
 	game.polluted[cell] = payload
 
-## 对一种模式的所有污染地块做一次扩散（行为规则来自 CoreMode，这里只做通用过滤）
-func spread_mode(mode_name: String, bm: CoreMode) -> void:
+## 对一颗核心（owner_uid）自己的污染树做一次扩散（行为规则来自 CoreMode）。
+## 遍历其树内各地块：owner==owner_uid 的向外扩一步。新产生的污染全部带 owner；
+## 历史遗留的无 owner 地块视为无主，冻结不再外扩（与“核心失效即冻结”同语义）。
+func spread_core(owner_uid: int, mode_name: String, bm: CoreMode) -> void:
 	var snapshot: Array = game.polluted.keys()
 	var newly: Dictionary = {}
 	for cell in snapshot:
 		var pl: Dictionary = game.polluted[cell]
 		if str(pl.get("mode", "")) != mode_name:
 			continue
-		# 核心失效后：其产生的地块不再外扩（owner 已失效则冻结；无 owner 旧地块按旧规则）
-		if not _owner_active(pl, mode_name):
-			continue
+		var owner := int(pl.get("owner", -1))
+		if owner != owner_uid:
+			continue  # 只扩这颗核心自己的树；无主历史地块冻结
 		for n: Vector2i in bm.spread_candidates(cell, pl):
 			if game.geometry.in_bounds(n) and not game.polluted.has(n) and not game.walls.has(n) and not newly.has(n):
 				var np: Dictionary = pl.duplicate()
@@ -45,8 +46,8 @@ func spread_mode(mode_name: String, bm: CoreMode) -> void:
 				newly[n] = np
 	for c in newly:
 		pollute_with(c, newly[c])
-	# 蔓延分支：结算后按概率额外随机蔓延一格
-	game.drop_effects.extra_spread(mode_name)
+	# 蔓延分支：结算后按概率额外随机蔓延一格（按该 owner 树判定）
+	game.drop_effects.extra_spread_owner(mode_name, owner_uid)
 
 ## 该地块是否仍可扩散：带 owner 的必须是场上仍存活的对应核心；
 ## 无 owner 的旧式地块沿用旧规则（该模式有存活核心即可）

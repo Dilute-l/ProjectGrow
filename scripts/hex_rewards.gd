@@ -38,7 +38,8 @@ extends RefCounted
 ## 内置 kind：
 ##   - "core"：解锁一种核心（加入 game.unlocked_core_ids，随后选择栏刷新）；
 ##   - "buff"：给核心授予词条（drop_effects.grant，尊重叠加上限）；
-##   - "tile"：获得一种特殊地块（special_tiles.json 里的种类；按上面的开关规则生效）。
+##   - "tile"：获得一种特殊地块（special_tiles.json 里的种类；按上面的开关规则生效）；
+##   - "item"：获得一件一次性道具（maps/items.json，进入 hex_items 库存）。
 
 var game
 
@@ -178,11 +179,14 @@ func _build_buff_pool(rare: bool) -> Array:
 			out.append(_make_buff_option(e, rare))
 	return out
 
-## 概率掉落候选池：目前只有特殊地块；以后新增内容往这里 append 即可
+## 概率掉落候选池：特殊地块 + 一次性道具（与地块同级、等概率；以后追加更多内容）
 func _build_chance_pool() -> Array:
 	var out: Array = []
 	for kid in game.special_kind_defs.keys():
 		out.append(_make_tile_option(str(kid)))
+	if game.items != null:
+		for item_id in game.items.item_defs.keys():
+			out.append(game.items.make_option(str(item_id)))
 	return out
 
 func _make_core_option(type_idx: int) -> Dictionary:
@@ -246,6 +250,8 @@ func apply_option(opt: Dictionary) -> void:
 			_grant_buff(str(opt.get("id", "")))
 		"tile":
 			grant_tile(str(opt.get("id", "")))
+		"item":
+			_grant_item(str(opt.get("id", "")))
 		_:
 			push_warning("HexRewards: 未知掉落类型「%s」" % str(opt.get("kind", "")))
 
@@ -265,6 +271,19 @@ func grant_tile(kind_id: String) -> void:
 	else:
 		game.special_once[kind_id] = int(game.special_once.get(kind_id, 0)) + 1
 		game.hud.set_status("已获得特殊地块「%s」：仅下一场出现（一次性）" % tname)
+	game.hud.update_status()
+
+## 获得一件一次性道具（进入 hex_items 库存；本局持有，跨轮次保留）
+func _grant_item(item_id: String) -> void:
+	if game.items == null:
+		return
+	if not game.items.item_defs.has(item_id):
+		game.hud.set_status("未知的一次性道具「%s」" % item_id)
+		game.hud.update_status()
+		return
+	game.items.grant(item_id)
+	var d: Dictionary = game.items.def_of(item_id)
+	game.hud.set_status("已获得一次性道具「%s」×%d（战斗中点选使用）" % [str(d.get("name", item_id)), game.items.count_of(item_id)])
 	game.hud.update_status()
 
 func _unlock_core(core_id: String) -> void:
