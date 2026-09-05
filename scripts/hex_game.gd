@@ -879,10 +879,10 @@ func _close_pause_menu() -> void:
 		pause_menu_layer.visible = false
 	queue_redraw()
 
-## 重置：重置当前关卡到部署阶段（deploy.reset()）
+## 重置：重置当前关卡到部署阶段，并退还本关已消耗的道具（deploy.reset(true)）
 func _on_pause_menu_reset() -> void:
 	_close_pause_menu()
-	deploy.reset()
+	deploy.reset(true)
 
 ## 切换编辑模式（关闭暂停菜单后切换，与原左上角“编辑模式”按钮一致）
 func _on_pause_menu_edit_mode() -> void:
