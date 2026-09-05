@@ -90,7 +90,7 @@ func update_status() -> void:
 		return
 	if game.phase == game.Phase.DEPLOY:
 		if game.awaiting_direction:
-			set_status("定向核心：请点击相邻地块选择延伸方向（右键取消）")
+			set_status("傲慢之眼：请点击相邻地块选择延伸方向（右键取消）")
 		elif game.selected_core < 0:
 			set_status("部署阶段：请先在右下角选择核心类型")
 		else:
@@ -98,7 +98,7 @@ func update_status() -> void:
 			set_status("部署阶段：当前核心「%s」（消耗 %d 点费用）｜剩余部署费用 %d/%d（只能部署在最外围一圈）" % [t["name"], game.drop_effects.deploy_cost(game.selected_core), game.deploy_points, PlayerCore.DEPLOY_COST_MAX])
 	elif game.phase == game.Phase.RUNNING:
 		if game.awaiting_direction:
-			set_status("定向核心：请点击相邻地块选择延伸方向（右键取消）")
+			set_status("傲慢之眼：请点击相邻地块选择延伸方向（右键取消）")
 		else:
 			set_status("扩散中…… 已污染 %d/%d | 存活核心 %d | 存活炮台 %d（仍可在外围继续部署）" % [game.polluted.size(), game.total_hexes, game.units.size(), game.turrets.alive_count()])
 	elif game.phase == game.Phase.WON:

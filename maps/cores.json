@@ -1,41 +1,41 @@
 {
-  "cores": [
-	{
-	  "id": "spread",
-	  "name": "扩散核心",
-	  "mode": "radial",
-	  "duration": 30,
-	  "spread_interval": 5,
-	  "cost": 15,
-	  "color": "#E394A9"
-	},
-	{
-	  "id": "beam",
-	  "name": "定向核心",
-	  "mode": "directional",
-	  "duration": 60,
-	  "spread_interval": 3,
-	  "cost": 15,
-	  "color": "#7dff5a",
-	  "unlocked_by_default": true
-	},
-	{
-	  "id": "charge",
-	  "name": "蓄力核心",
-	  "mode": "charge",
-	  "duration": 5,
-	  "spread_interval": 9999.0,
-	  "cost": 20,
-	  "color": "#C25C14"
-	},
-	{
-	  "id": "speedy",
-	  "name": "高速核心",
-	  "mode": "speedy",
-	  "duration": 15,
-	  "spread_interval": 1,
-	  "cost": 17,
-	  "color": "#3391A1"
-	}
-  ]
+	"cores": [
+		{
+			"id": "spread",
+			"name": "色孽之宫",
+			"mode": "radial",
+			"duration": 60.0,
+			"spread_interval": 5.0,
+			"cost": 20.0,
+			"color": "#E394A9"
+		},
+		{
+			"id": "beam",
+			"name": "傲慢之眼",
+			"mode": "directional",
+			"duration": 30.0,
+			"spread_interval": 3.0,
+			"cost": 15.0,
+			"color": "#7dff5a",
+			"unlocked_by_default": true
+		},
+		{
+			"id": "charge",
+			"name": "怠惰之心",
+			"mode": "charge",
+			"duration": 5.0,
+			"spread_interval": 9999.0,
+			"cost": 10.0,
+			"color": "#C25C14"
+		},
+		{
+			"id": "speedy",
+			"name": "饕餮之吻",
+			"mode": "speedy",
+			"duration": 15.0,
+			"spread_interval": 1.0,
+			"cost": 17.0,
+			"color": "#3391A1"
+		}
+	]
 }

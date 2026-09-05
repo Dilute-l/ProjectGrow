@@ -8,6 +8,7 @@ extends RefCounted
 ## 在教程与游戏状态之间来回切换。
 
 var game
+var seen_enemy_types: Dictionary = {}   # 本局已介绍过的敌人类型（首次遭遇教程只播一次）
 
 func _init(g) -> void:
 	game = g
@@ -96,3 +97,36 @@ func update_spotlight() -> void:
 			game.tutorial_node.set_spotlight(game.geometry.map_spotlight_rect())
 		_:
 			game.tutorial_node.clear_spotlight()
+
+# ---------------------------------------------------------------------------
+# 敌人首次遭遇教程
+# ---------------------------------------------------------------------------
+
+# 检查当前关卡是否出现了尚未介绍过的新敌人，若有则播放其首次遭遇对话
+func check_enemy_encounters() -> void:
+	if game.tutorial_node != null:
+		return   # 已有教程在播放，跳过（避免与主教程冲突）
+	for type_name in game.turret_types.values():
+		var t := str(type_name)
+		if seen_enemy_types.has(t):
+			continue
+		if not Tutorial.enemy_stages.has(t):
+			continue   # 没有专属教程的敌人（如 basic）不触发、也不标记
+		seen_enemy_types[t] = true
+		play_enemy(t)
+		return
+
+func play_enemy(enemy_type: String) -> void:
+	game.tutorial_active = true
+	game.tutorial_node = Tutorial.new()
+	game.add_child(game.tutorial_node)
+	game.tutorial_node.finished.connect(on_enemy_finished)
+	game._update_ui_scale()
+	game.tutorial_node.start_enemy(enemy_type)
+
+func on_enemy_finished() -> void:
+	game.tutorial_active = false
+	game.tutorial_spotlight = ""
+	if game.tutorial_node != null:
+		game.tutorial_node.queue_free()
+		game.tutorial_node = null

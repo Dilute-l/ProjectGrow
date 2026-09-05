@@ -22,6 +22,12 @@ var current_cost_label: BlinkLabel
 # —— 核心蜂窝容器（解锁变化时重建按钮用） ——
 var core_grid: Control
 
+# —— 左下角选中核心信息框 ——
+var info_panel: PanelContainer
+var info_title: Label
+var info_sub: Label
+var info_desc: Label
+
 ## 各核心 mode -> 本体贴图（图标）
 const CORE_ICONS := {
 	"directional": preload("res://images/Direct_core.png"),
@@ -115,6 +121,80 @@ func build() -> void:
 	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 
+	_build_info_box()
+	_refresh_info_box()
+
+# ---------------------------------------------------------------------------
+# 左下角选中核心信息框
+# ---------------------------------------------------------------------------
+## 构建左下角信息框（样式与奖励卡一致，展示当前选中核心的名称/费用/模式/描述）
+func _build_info_box() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 10
+	game.add_child(layer)
+	game.core_info_layer = layer
+
+	info_panel = PanelContainer.new()
+	layer.add_child(info_panel)
+
+	var cm := MarginContainer.new()
+	cm.add_theme_constant_override("margin_left", 12)
+	cm.add_theme_constant_override("margin_top", 10)
+	cm.add_theme_constant_override("margin_right", 12)
+	cm.add_theme_constant_override("margin_bottom", 10)
+	info_panel.add_child(cm)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	cm.add_child(box)
+
+	info_title = Label.new()
+	info_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info_title.add_theme_font_size_override("font_size", 20)
+	info_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(info_title)
+
+	info_sub = Label.new()
+	info_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info_sub.add_theme_font_size_override("font_size", 13)
+	info_sub.add_theme_color_override("font_color", Color("cfe0ff"))
+	info_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(info_sub)
+
+	info_desc = Label.new()
+	info_desc.add_theme_font_size_override("font_size", 13)
+	info_desc.add_theme_color_override("font_color", Color("9fb0cc"))
+	info_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info_desc.custom_minimum_size = Vector2(260, 0)
+	box.add_child(info_desc)
+
+	# 锚定左下角；内容变高时向上生长，左下角固定
+	info_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 16)
+	info_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+
+## 刷新左下角信息框：无选中核心时隐藏；有选中核心时显示其名称/费用/模式/描述
+func _refresh_info_box() -> void:
+	if info_panel == null:
+		return
+	if game.selected_core < 0 or game.selected_core >= game.core_types.size():
+		info_panel.visible = false
+		return
+	info_panel.visible = true
+	var t: Dictionary = game.core_types[game.selected_core]
+	var mode_name := str(t.get("mode", ""))
+	var bm = game.map_data.behavior_for_mode(mode_name)
+	var col: Color = game.map_data.core_color(t)
+	info_title.text = str(t.get("name", "核心"))
+	info_title.add_theme_color_override("font_color", col.lightened(0.25))
+	info_sub.text = "费用 %d · %s扩散" % [game.drop_effects.deploy_cost(game.selected_core), bm.display_name()]
+	info_desc.text = bm.description()
+	var style := StyleBoxFlat.new()
+	style.bg_color = col.darkened(0.78)
+	style.border_color = col
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(8)
+	info_panel.add_theme_stylebox_override("panel", style)
+
 # ---------------------------------------------------------------------------
 # 核心蜂窝按钮
 # ---------------------------------------------------------------------------
@@ -179,6 +259,7 @@ func select_core(i: int) -> void:
 		game.awaiting_direction = false
 		refresh_button_states()
 		update_cost_ui()
+		_refresh_info_box()
 		return
 	if i >= game.core_types.size():
 		return
@@ -189,6 +270,7 @@ func select_core(i: int) -> void:
 	game.awaiting_direction = false
 	refresh_button_states()
 	update_cost_ui()
+	_refresh_info_box()
 	if game.tutorial_spotlight == "core":
 		game.tutorial_spotlight = "map"
 		game.guide.update_spotlight()
@@ -201,6 +283,7 @@ func refresh_core_unlocks() -> void:
 	if core_grid != null:
 		_populate_core_buttons()
 	update_cost_ui()
+	_refresh_info_box()
 	game.hud.update_status()
 	game.queue_redraw()
 

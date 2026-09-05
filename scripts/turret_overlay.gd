@@ -5,11 +5,14 @@ extends Node2D
 ## 只读取父节点 Main（hex_game.gd）公开的 turret_positions / turret_types /
 ## turret_map / geometry / hex_size / mode / phase / COL_TURRET / COL_TURRET_DEAD。
 
-# 敌方炮台贴图（basic/sniper/rapid/sweeper 有贴图；beam/mortar 保持矢量本体）
+# 敌方炮台贴图（所有炮台类型均有贴图）
 const TEX_TURRET_BASIC := preload("res://images/magica/enemy_basic.png")
 const TEX_TURRET_SNIPER := preload("res://images/magica/enemy_sniper.png")
 const TEX_TURRET_RAPID := preload("res://images/magica/enemy_rapid.png")
 const TEX_TURRET_SWEEPER := preload("res://images/magica/enemy_sweeper.png")
+const TEX_TURRET_BEAM := preload("res://images/magica/enemy_beam.png")
+const TEX_TURRET_SUMMONER := preload("res://images/magica/enemy_summoner.png")
+const TEX_TURRET_MORTAR := preload("res://images/magica/enemy_mortar.png")
 # 贴图实测几何（原图 6554×6554）：六边形边长 = 5000/√3 ≈ 2886.75，中心 (3135.5, 3364.25)
 const TURRET_ART_EDGE := 2886.75
 const TURRET_ART_CENTER := Vector2(3135.5, 3364.25)
@@ -18,6 +21,9 @@ const TURRET_BASIC_COLOR := Color("#9EA07C")
 const TURRET_SNIPER_COLOR := Color("#956E97")
 const TURRET_RAPID_COLOR := Color("#EED272")
 const TURRET_SWEEPER_COLOR := Color("#D46480")
+const TURRET_BEAM_COLOR := Color("#CFCDC1")
+const TURRET_SUMMONER_COLOR := Color("#CFCDC1")
+const TURRET_MORTAR_COLOR := Color("#696766")
 
 func _process(_delta: float) -> void:
 	queue_redraw()  # 充能环进度与存活状态每帧变化，直接每帧重绘（炮台数量少，开销可忽略）
@@ -38,7 +44,7 @@ func _draw() -> void:
 			if tex != null:
 				_draw_turret_texture(tc, tex, main.hex_size)
 			else:
-				# 无贴图的类型（beam/mortar）：沿用原矢量本体
+				# 未知类型（无贴图）：沿用原矢量本体
 				draw_circle(tc, main.hex_size * 0.52, body_col)
 				draw_arc(tc, main.hex_size * 0.52, 0.0, TAU, 24, ring_col, 2.0)
 				var dir: Vector2 = Vector2(0.0, -1.0) * main.hex_size * 0.82
@@ -68,6 +74,8 @@ func _turret_body_color(type_name: String, main) -> Color:
 			return Color("ffd54f")   # 黄色（扫荡凝视）
 		"mortar":
 			return Color("8d6e63")   # 棕色（炮塔）
+		"summoner":
+			return Color("ec407a")   # 粉色（召唤者）
 		_:
 			return main.COL_TURRET   # 红色（基础）
 
@@ -82,9 +90,15 @@ func _turret_ring_color(type_name: String, main) -> Color:
 			return TURRET_RAPID_COLOR.lightened(0.4)
 		"sweeper":
 			return TURRET_SWEEPER_COLOR.lightened(0.4)
+		"beam":
+			return TURRET_BEAM_COLOR.lightened(0.4)
+		"summoner":
+			return TURRET_SUMMONER_COLOR.lightened(0.4)
+		"mortar":
+			return TURRET_MORTAR_COLOR.lightened(0.4)
 	return _turret_body_color(type_name, main).lightened(0.55)
 
-## 炮台类型 -> 本体贴图；无贴图的类型（beam/mortar）返回 null
+## 炮台类型 -> 本体贴图；未知类型返回 null
 func _turret_texture(type_name: String) -> Texture2D:
 	match type_name:
 		"basic":
@@ -95,6 +109,12 @@ func _turret_texture(type_name: String) -> Texture2D:
 			return TEX_TURRET_RAPID
 		"sweeper":
 			return TEX_TURRET_SWEEPER
+		"beam":
+			return TEX_TURRET_BEAM
+		"summoner":
+			return TEX_TURRET_SUMMONER
+		"mortar":
+			return TEX_TURRET_MORTAR
 	return null
 
 ## 在 center 绘制一张炮台贴图：以贴图内六边形中心为锚点对齐格子中心
@@ -104,7 +124,7 @@ func _draw_turret_texture(center: Vector2, tex: Texture2D, hex_size: float) -> v
 	var top_left: Vector2 = center - TURRET_ART_CENTER * scale
 	draw_texture_rect(tex, Rect2(top_left, Vector2(span, span)), false)
 
-## 悬停提示：鼠标停留在敌方炮台上时，绘制名称 + 描述信息条
+## 悬停提示：鼠标停留在敌方炮台上时，绘制名称 + 基础数据 + 描述信息条
 func _draw_hover_hint(main) -> void:
 	if not main.turret_types.has(main.hover_cell):
 		return
@@ -114,9 +134,14 @@ func _draw_hover_hint(main) -> void:
 		return
 	var fsize := 13
 	var max_w := 360.0
-	var title := "【敌方炮台】" + EnemyTurret.enemy_name(type_name)
+	var def: Dictionary = EnemyTurret.enemy_def(type_name)
+	# var title := "【敌方炮台】" + EnemyTurret.enemy_name(type_name)
 	var desc := EnemyTurret.enemy_desc(type_name)
-	var lines: Array = [title]
+	var interval_sec: float = main.enemy_attack_interval * float(def.get("interval_mult", 1.0))
+	var lines: Array = [""]
+	lines.append("攻击范围：%d 格" % int(def.get("range", 0)))
+	lines.append("攻击间隔：%.1f 秒" % interval_sec)
+	lines.append("攻击模式：%s" % _attack_style_label(str(def.get("attack", "single"))))
 	if desc != "":
 		lines.append_array(_wrap_text_lines(font, desc, max_w, fsize))
 	var w := 60.0
@@ -133,6 +158,20 @@ func _draw_hover_hint(main) -> void:
 		var tc := Color("ffd166") if i == 0 else Color("cfe0ff")
 		draw_string(font, Vector2(pos.x, y), str(lines[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, tc)
 		y += lh
+
+## 攻击方式 -> 中文标签
+func _attack_style_label(style: String) -> String:
+	match style:
+		"line":
+			return "直线"
+		"area":
+			return "范围"
+		"splash":
+			return "溅射"
+		"summon":
+			return "召唤"
+		_:
+			return "单体"
 
 ## 按最大宽度逐字符折行（适配中文），返回行文本数组
 func _wrap_text_lines(font: Font, text: String, max_w: float, fsize: int) -> Array:

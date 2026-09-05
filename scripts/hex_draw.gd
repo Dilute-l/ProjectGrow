@@ -9,11 +9,17 @@ extends RefCounted
 
 var game
 
+## 游戏背景图（带暗色滤镜，让前景元素更清晰）
+const BG_TEXTURE := preload("res://images/background.png")
+const BG_DARKEN := Color(0.0, 0.0, 0.0, 0.75)
+
 func _init(g) -> void:
 	game = g
 
 func draw() -> void:
-	game.draw_rect(Rect2(Vector2.ZERO, game.get_viewport_rect().size), game.COL_BG)
+	var vs: Vector2 = game.get_viewport_rect().size
+	game.draw_texture_rect(BG_TEXTURE, Rect2(Vector2.ZERO, vs), false)
+	game.draw_rect(Rect2(Vector2.ZERO, vs), BG_DARKEN)
 	for cell in game.geometry.all_cells():
 		draw_hex(game.geometry.hex_center(cell), game.hex_size - 1.2, tile_color(cell))
 	# 炮台攻击范围高亮（统一颜色；范围仍按各炮台类型正确计算）

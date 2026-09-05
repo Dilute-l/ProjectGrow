@@ -35,7 +35,7 @@ const TEX_GREY_UPLEFT := preload("res://images/tentacles/tentacle_upleft.png")
 const TEX_GREY_UPRIGHT := preload("res://images/tentacles/tentacle_upright.png")
 const TEX_GREY_DOWNLEFT := preload("res://images/tentacles/tentacle_downleft.png")
 const TEX_GREY_DOWNRIGHT := preload("res://images/tentacles/tentacle_downright.png")
-# 定向核心 id（用原玫红贴图，不换色）；其余核心用灰度贴图按占位符色上色
+# 傲慢之眼 id（用原玫红贴图，不换色）；其余核心用灰度贴图按占位符色上色
 const DIRECTIONAL_CORE_ID := "beam"
 # 贴图微调偏移（以 hex_size 为单位，随窗口缩放）
 @export var art_offset := Vector2.ZERO
@@ -89,7 +89,7 @@ func _draw() -> void:
 		var origin_id := str(pl.get("origin_id", ""))
 		var center: Vector2 = main.geometry.hex_center(cell) + off
 		if origin_id == DIRECTIONAL_CORE_ID or origin_id == "":
-			# 定向核心（或未知来源）：原玫红贴图，不上色
+			# 傲慢之眼（或未知来源）：原玫红贴图，不上色
 			var tex := _dir_entry(dir)
 			if tex == null:
 				continue

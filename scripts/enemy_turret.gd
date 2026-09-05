@@ -75,6 +75,8 @@ const ENEMIES_FALLBACK: Dictionary = {
 		"desc": "她总是很忧郁，作为一个巫女，最喜欢的传说故事是八岐大蛇"},
 	"mortar": {"name": "炮塔", "range": 3, "interval_mult": 7.0, "attack": "splash",
 		"desc": "没有什么麻烦是碳酸二丁酯炸药无法解决的，如果有，那就……"},
+	"summoner": {"name": "召唤者", "range": 2, "interval_mult": 8.0, "attack": "summon",
+		"desc": "呼朋唤友的召唤师，会在身边两格内随机召唤出其他魔法少女"},
 }
 
 # 类型 id -> 定义字典（运行时从 maps/enemies.json 加载）
@@ -124,6 +126,9 @@ const RAYS: Array[Vector2i] = [
 	Vector2i(1, -1), Vector2i(-1, 1),
 ]
 
+# 召唤者（summoner）的召唤顺序：basic -> sniper -> rapid -> beam -> sweeper -> mortar -> basic 循环
+const SUMMON_ORDER: Array[String] = ["basic", "sniper", "rapid", "beam", "sweeper", "mortar"]
+
 # ---------------------------------------------------------------------------
 # 信号
 # ---------------------------------------------------------------------------
@@ -131,6 +136,8 @@ const RAYS: Array[Vector2i] = [
 signal attacked(target: Vector2i)
 ## 炮台被污染摧毁（由 check_contamination() 或 destroy() 触发）
 signal destroyed
+## 召唤者请求召唤（from_coord 为召唤者所在格，type_name 为要召唤的敌人类型）
+signal summon_requested(from_coord: Vector2i, type_name: String)
 
 # ---------------------------------------------------------------------------
 # 状态（对应原 hex_game.gd 中 turrets 字典与 enemy_attack_interval）
@@ -147,8 +154,10 @@ var attack_range := ATTACK_RANGE_DEFAULT
 var turret_type := "basic"
 ## 攻速倍率（相对基础间隔；由类型决定）
 var interval_mult := 1.0
-## 攻击方式（single / line / area / splash；来自类型定义，见 maps/enemies.json）
+## 攻击方式（single / line / area / splash / summon；来自类型定义，见 maps/enemies.json）
 var attack_style := "single"
+## 召唤顺序下标（仅 summoner 使用；每次召唤后 +1，按 SUMMON_ORDER 循环）
+var summon_index := 0
 ## 距下次攻击已累计的秒数（只应由 tick() 推进；原 turrets[coord] 的值）
 var attack_timer := 0.0
 ## 眩晕剩余秒数（>0 时停止攻击并冻结充能；由「清算反噬」类词条施加）
@@ -178,6 +187,7 @@ func reset() -> void:
 	alive = true
 	attack_timer = 0.0
 	stun_timer = 0.0
+	summon_index = 0
 
 ## 外部强制摧毁本炮台（未来扩展：被其它手段击杀等）
 func destroy() -> void:
@@ -205,6 +215,12 @@ func tick(delta: float, polluted: Dictionary, units: Dictionary, radial_polluted
 	if attack_timer < attack_interval:
 		return false
 	attack_timer = 0.0
+	# 召唤者：不清除污染，而是发出召唤请求（由主脚本在周围两格内随机选一个空闲地块召唤敌人）
+	if is_summoner():
+		var type_name: String = SUMMON_ORDER[summon_index % SUMMON_ORDER.size()]
+		summon_index += 1
+		summon_requested.emit(coord, type_name)
+		return true
 	# 按类型收集本次要清除的目标地块，再统一清除
 	var targets: Array = []
 	var emit_cell := coord
@@ -304,6 +320,10 @@ func is_sweeper() -> bool:
 ## 是否为炮塔（目标周围一圈AOE清除，attack=splash）
 func is_mortar() -> bool:
 	return attack_style == "splash"
+
+## 是否为召唤者（在周围召唤敌人，attack=summon）
+func is_summoner() -> bool:
+	return attack_style == "summon"
 
 ## 射线清除型：在 6 条单方向射线中选“含最多污染地块”的一条，返回该射线上的所有污染地块
 func choose_line_targets(polluted: Dictionary) -> Array:

@@ -17,7 +17,7 @@ func display_name() -> String:
 	return "定向"
 
 func description() -> String:
-	return "部署时选定一个方向，此后沿该方向单向蔓延。"
+	return "15消耗，核心存在30s，每3s向指定方向扩散一格\n你感到一个邪恶的东西正在注视着你...它的下一个目标是？谁知道呢"
 
 func spread_candidates(cell: Vector2i, payload: Dictionary) -> Array[Vector2i]:
 	var dir: Vector2i = payload.get("dir", Vector2i.ZERO)

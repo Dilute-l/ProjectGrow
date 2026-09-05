@@ -28,8 +28,46 @@ func rebuild() -> void:
 		t.setup(p, type_name, game.enemy_attack_interval)
 		if game.turret_interval_overrides.has(type_name):
 			t.attack_interval = float(game.turret_interval_overrides[type_name])
+		t.summon_requested.connect(_on_summon_requested)
 		game.turret_container.add_child(t)
 		game.turret_map[p] = t
+
+## 召唤者请求召唤：在 from_coord 周围两格内随机选一个空闲地块，召唤 type_name 敌人
+func _on_summon_requested(from_coord: Vector2i, type_name: String) -> void:
+	var candidates: Array = []
+	for cell in game.geometry.all_cells():
+		if game.geometry.cube_dist(cell, from_coord) <= 2 and _is_free(cell):
+			candidates.append(cell)
+	if candidates.is_empty():
+		return  # 两格内所有地块均已占满，无效果
+	var target: Vector2i = candidates[randi() % candidates.size()]
+	summon(target, type_name)
+
+## 在指定地块召唤一个新的敌方炮台（供召唤者使用）
+func summon(cell: Vector2i, type_name: String) -> void:
+	if game.walls.has(cell) or game.turret_positions.has(cell):
+		return
+	game.turret_positions.append(cell)
+	game.turret_types[cell] = type_name
+	var t: EnemyTurret = TURRET_SCENE.instantiate()
+	t.setup(cell, type_name, game.enemy_attack_interval)
+	if game.turret_interval_overrides.has(type_name):
+		t.attack_interval = float(game.turret_interval_overrides[type_name])
+	t.summon_requested.connect(_on_summon_requested)
+	game.turret_container.add_child(t)
+	game.turret_map[cell] = t
+
+## 该地块是否空闲（可被召唤者占用）：非墙、非炮台、非核心、非污染
+func _is_free(cell: Vector2i) -> bool:
+	if game.walls.has(cell):
+		return false
+	if game.turret_positions.has(cell):
+		return false
+	if game.units.has(cell):
+		return false
+	if game.polluted.has(cell):
+		return false
+	return true
 
 ## 存活炮台数量
 func alive_count() -> int:

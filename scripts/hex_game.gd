@@ -32,6 +32,10 @@ const LEVEL_PATHS: Array[String] = [
 	"res://maps/level4.json",
 	"res://maps/level5.json",
 	"res://maps/level6.json",
+	"res://maps/level7.json",
+	"res://maps/level8.json",
+	"res://maps/level9.json",
+	"res://maps/level10.json",
 ]
 var level_index := 0
 # 本局已通关数（随机关卡选关的“完成总关卡数”；每通关一关 +1，新一局清零）
@@ -80,7 +84,7 @@ var special_once: Dictionary = {}
 
 # 核心数据（从文件读取）
 var core_types: Array = []     # 每个元素为 Dictionary：{id,name,mode,duration,spread_interval,color,unlocked_by_default}
-# 解锁核心（局内）：新一局只解锁 cores.json 中 unlocked_by_default=true 的核心（默认「定向核心」），
+# 解锁核心（局内）：新一局只解锁 cores.json 中 unlocked_by_default=true 的核心（默认「傲慢之眼」），
 # 其余核心作为通关掉落供玩家挑选（见 hex_rewards.gd）
 var unlocked_core_ids: Array = []
 var next_core_uid := 1            # 核心实例 uid 自增分配（污染地块归属标记用）
@@ -147,6 +151,7 @@ var status_label: Label
 var start_button: Button
 var core_buttons: Array = []
 var core_selector_layer: CanvasLayer
+var core_info_layer: CanvasLayer
 var hud_layer: CanvasLayer
 
 # 关卡奖励界面（通关后弹出；掉落队列逐项弹出：必定掉落 → 概率掉落(30%)）
@@ -237,6 +242,7 @@ func _create_modules() -> void:
 func _ready() -> void:
 	_create_modules()
 	EnemyTurret.load_enemy_defs()   # 从 maps/enemies.json 加载敌方炮台类型（数值 + 中文名）
+	Tutorial.load_enemy_stages()    # 提前加载敌人首次遭遇台词（供关卡切换时检测新敌人）
 	map_data.load_map()
 	map_data.load_cores()
 	map_data.register_core_modes()
@@ -400,6 +406,7 @@ func _update_ui_scale() -> void:
 	_set_layer_transform(editor_layer, s, Vector2(vs.x * (1.0 - s) * 0.5, 0.0))
 	_set_layer_transform(console_layer, s, Vector2(vs.x * (1.0 - s) * 0.5, vs.y * (1.0 - s) * 0.5))
 	_set_layer_transform(core_selector_layer, s, Vector2(vs.x * (1.0 - s), vs.y * (1.0 - s)))
+	_set_layer_transform(core_info_layer, s, Vector2(0.0, vs.y * (1.0 - s)))
 	_set_layer_transform(game_controls_layer, s, Vector2(vs.x * (1.0 - s), 0.0))
 	_set_layer_transform(reward_layer, s, Vector2(vs.x * (1.0 - s) * 0.5, vs.y * (1.0 - s) * 0.5))
 	_set_layer_transform(pause_menu_layer, s, Vector2(vs.x * (1.0 - s) * 0.5, vs.y * (1.0 - s) * 0.5))
@@ -569,6 +576,17 @@ func _make_reward_card(opt: Dictionary) -> Control:
 	tag.add_theme_font_size_override("font_size", 12)
 	tag.add_theme_color_override("font_color", col)
 	box.add_child(tag)
+	# 新核心奖励：在卡片底部显示对应核心的图标
+	if str(opt.get("kind", "")) == "core":
+		var icon: Texture2D = CoreSelectorUI.CORE_ICONS.get(str(opt.get("mode", "")), null)
+		if icon != null:
+			var icon_rect := TextureRect.new()
+			icon_rect.texture = icon
+			icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon_rect.custom_minimum_size = Vector2(56, 56)
+			icon_rect.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			box.add_child(icon_rect)
 	return card
 
 func _on_card_input(ev: InputEvent, opt: Dictionary) -> void:
@@ -717,6 +735,7 @@ func _load_level(idx: int) -> void:
 	deploy.reset()
 	_set_paused(true)   # 每关开局默认进入暂停
 	queue_redraw()
+	guide.check_enemy_encounters()   # 首次遇到新敌人时播放对应教程
 
 # ---------------------------------------------------------------------------
 # 暂停与倍速（右上角 UI）
@@ -902,13 +921,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			_toggle_pause()
 			return
 	if paused:
-		# 暂停时：仍允许部署/移除核心（鼠标），ESC 打开暂停菜单，其余输入屏蔽
+		# 暂停时：仍允许部署/移除核心（鼠标），ESC 打开暂停菜单，并更新悬停提示
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 			_handle_escape()
 			return
 		if console_open:
 			return
-		if mode != Mode.EDIT and event is InputEventMouseButton and event.pressed:
+		if event is InputEventMouseMotion:
+			hover_cell = geometry.pixel_to_hex(event.position)
+			queue_redraw()
+		elif mode != Mode.EDIT and event is InputEventMouseButton and event.pressed:
 			_handle_deploy_mouse(event)
 		return
 	if tutorial_active:

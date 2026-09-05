@@ -20,7 +20,7 @@ func display_name() -> String:
 	return "径向"
 
 func description() -> String:
-	return "向周围所有方向蔓延扩散，每块污染地块都会向六个邻居扩散。"
+	return "20消耗，核心存在60s，每5s向外扩散一圈\n看起来生命力好像很旺盛，也不知道到底是什么在驱使着它，总不能是对魔法少女的渴望吧"
 
 func spread_candidates(cell: Vector2i, _payload: Dictionary) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []

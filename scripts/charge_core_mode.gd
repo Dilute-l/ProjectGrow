@@ -9,19 +9,19 @@ func mode() -> String:
 	return "charge"
 
 func interval_fallback() -> float:
-	return 999999.0  # 蓄力核心不周期性分裂
+	return 999999.0  # 怠惰之心不周期性分裂
 
 func display_name() -> String:
 	return "蓄力"
 
 func description() -> String:
-	return "存活期间蓄力不扩散，到期后向周围爆发；可部署在任意位置（无视最外圈限制）。"
+	return "10消耗，核心存在5s，核心死亡后向外扩散三圈\n你完了，它一睡醒就要炸人了"
 
 ## 存活期间不扩散
 func spread_candidates(_cell: Vector2i, _payload: Dictionary) -> Array[Vector2i]:
 	return []
 
-## 蓄力核心可无视「最外圈」限制，部署在任意位置
+## 怠惰之心可无视「最外圈」限制，部署在任意位置
 func deploy_anywhere() -> bool:
 	return true
 

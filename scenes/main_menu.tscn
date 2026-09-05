@@ -1,7 +1,7 @@
 [gd_scene format=4 uid="uid://bxuxjyfalqpn1"]
 
 [ext_resource type="Script" uid="uid://smxe4q2j4qah" path="res://scenes/main_menu.gd" id="1_ekxnf"]
-[ext_resource type="Texture2D" uid="uid://dt8mvvpduuld" path="res://images/Something.png" id="1_l6cm7"]
+[ext_resource type="Texture2D" uid="uid://ko3pv50hdsl0" path="res://images/background.png" id="2_ekxnf"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_vkqoe"]
 bg_color = Color(0.5333498, 2.690509e-05, 0.41579118, 1)
@@ -70,9 +70,9 @@ grow_vertical = 2
 script = ExtResource("1_ekxnf")
 
 [node name="Something" type="Sprite2D" parent="." unique_id=956704085]
-position = Vector2(800.00006, 448)
-scale = Vector2(0.45610034, 0.3612903)
-texture = ExtResource("1_l6cm7")
+position = Vector2(801, 449.99997)
+scale = Vector2(0.244, 0.244)
+texture = ExtResource("2_ekxnf")
 
 [node name="StartGame" type="Button" parent="." unique_id=30569977]
 layout_mode = 1

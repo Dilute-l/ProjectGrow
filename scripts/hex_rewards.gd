@@ -5,7 +5,7 @@ extends RefCounted
 ##
 ## 职责：每关胜利(WON)后提供战后掉落，并在玩家选择后应用。
 ## 解锁规则：本局(每次进入 hex_game = 一局)开始时，只解锁 cores.json 里
-## 标记 unlocked_by_default 的核心（默认只有「定向核心」）。
+## 标记 unlocked_by_default 的核心（默认只有「傲慢之眼」）。
 ##
 ## 【战后掉落结构】(build_drop_queue)
 ## 每场 WON 生成一串「掉落项」(queue)，逐项弹出让玩家 3 选 1：
@@ -196,6 +196,7 @@ func _make_core_option(type_idx: int) -> Dictionary:
 	return {
 		"kind": "core",
 		"id": str(t.get("id", "")),
+		"mode": mode_name,
 		"title": str(t.get("name", "核心")),
 		"sub": "解锁 · 费用 %d · %s扩散" % [game.drop_effects.deploy_cost(type_idx), bm.display_name()],
 		"color": game.map_data.core_color(t),

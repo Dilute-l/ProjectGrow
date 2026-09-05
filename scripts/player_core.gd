@@ -158,7 +158,7 @@ func _core_texture() -> Texture2D:
 const HEX_ART_EDGE := 2381.0
 ## 贴图内六边形本体中心（像素坐标）；作为锚点对齐节点原点，补偿贴图透明边不对称（不含延伸）
 const CORE_ART_CENTER := Vector2(3243.0, 3360.0)
-## 定向核心贴图 Direct_core.png 的主导色（实测 alpha>128 平均），用于其计时器环
+## 傲慢之眼贴图 Direct_core.png 的主导色（实测 alpha>128 平均），用于其计时器环
 const DIRECTIONAL_ART_COLOR := Color("#9F4353")
 ## 贴图微调偏移（以 hex_size 为单位，随窗口缩放；正 x 向右、正 y 向下）
 @export var core_tex_offset := Vector2.ZERO
@@ -168,7 +168,7 @@ func _draw() -> void:
 	# 实心圆盘 + 外圈描边
 	draw_circle(Vector2.ZERO, hex_size * 0.40, col)
 	draw_arc(Vector2.ZERO, hex_size * 0.40, 0.0, TAU, 24, col.lightened(0.5), 2.0)
-	# 有贴图的核心：画本体贴图；定向核心额外画方向箭头
+	# 有贴图的核心：画本体贴图；傲慢之眼额外画方向箭头
 	var tex := _core_texture()
 	if tex != null:
 		if mode() == "directional":

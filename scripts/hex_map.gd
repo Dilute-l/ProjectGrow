@@ -148,7 +148,7 @@ func load_cores() -> void:
 								"unlocked_by_default": bool(entry.get("unlocked_by_default", false)),
 							})
 	if game.core_types.is_empty():
-		game.core_types.append({"id": "spread", "name": "扩散核心", "mode": "radial", "duration": 15.0, "spread_interval": 0.9, "cost": 2, "color": "#3fc1ff"})
+		game.core_types.append({"id": "spread", "name": "色孽之宫", "mode": "radial", "duration": 60.0, "spread_interval": 5.0, "cost": 20, "color": "#E394A9"})
 	game.mode_intervals.clear()
 	for t in game.core_types:
 		game.mode_intervals[str(t["mode"])] = float(t["spread_interval"])

@@ -47,6 +47,14 @@
       "interval_mult": 7,
       "attack": "splash",
       "desc": "没有什么麻烦是碳酸二丁酯炸药无法解决的，如果有，那就……"
+    },
+    {
+      "id": "summoner",
+      "name": "召唤者",
+      "range": 2,
+      "interval_mult": 8,
+      "attack": "summon",
+      "desc": "呼朋唤友的召唤师，会在身边两格内随机召唤出其他魔法少女"
     }
   ]
 }

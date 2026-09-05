@@ -47,7 +47,7 @@ func mode() -> String:
 func needs_direction() -> bool:
 	return false
 
-## 部署时是否无视「只能部署在最外圈」的位置限制（蓄力核心等覆写为 true）
+## 部署时是否无视「只能部署在最外圈」的位置限制（怠惰之心覆写为 true）
 func deploy_anywhere() -> bool:
 	return false
 

@@ -41,6 +41,7 @@ class SpotlightDim:
 var speaker_name := ""
 var speaker_prefix := ""
 var stages: Array = []   # 每个元素：{ "id": String, "lines": Array[String] }
+static var enemy_stages: Dictionary = {}   # 敌人类型 -> 首次遭遇台词（与 stages 同源 JSON）
 var stage_index := 0
 var line_index := 0
 var active := false
@@ -82,6 +83,29 @@ func _load_dialogue() -> void:
 							for ln in entry.get("lines", []):
 								lines.append(str(ln))
 							stages.append({"id": str(entry.get("id", "")), "lines": lines})
+				_parse_enemy_stages(data)
+
+# 从已解析的 JSON 数据中读取敌人首次遭遇台词（敌人类型 -> 台词数组）
+static func _parse_enemy_stages(data) -> void:
+	enemy_stages.clear()
+	if data is Dictionary:
+		var es = data.get("enemy_stages", {})
+		if es is Dictionary:
+			for k in es.keys():
+				var lines: Array = []
+				for ln in es[k]:
+					lines.append(str(ln))
+				enemy_stages[str(k)] = lines
+
+# 静态加载：供主脚本在创建 Tutorial 节点之前提前获知哪些敌人有专属教程
+static func load_enemy_stages() -> void:
+	enemy_stages.clear()
+	if FileAccess.file_exists(DIALOGUE_PATH):
+		var f := FileAccess.open(DIALOGUE_PATH, FileAccess.READ)
+		if f != null:
+			var text := f.get_as_text()
+			f.close()
+			_parse_enemy_stages(JSON.parse_string(text))
 
 func _build_ui() -> void:
 	# 1) 聚光灯遮罩（整屏变暗，可挖洞；不拦截点击）
@@ -162,6 +186,21 @@ func clear_spotlight() -> void:
 
 # 从头开始播放
 func start() -> void:
+	stage_index = 0
+	line_index = 0
+	active = true
+	visible = true
+	waiting_deploy = false
+	waiting_attack = false
+	_show_current()
+
+# 播放某个敌人类型的首次遭遇对话（单阶段、无部署/攻击门槛，播完即结束）
+func start_enemy(enemy_type: String) -> void:
+	var lines: Array = enemy_stages.get(enemy_type, [])
+	if lines.is_empty():
+		finished.emit()
+		return
+	stages = [{"id": "enemy_" + enemy_type, "lines": lines}]
 	stage_index = 0
 	line_index = 0
 	active = true

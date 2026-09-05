@@ -17,7 +17,7 @@ func display_name() -> String:
 	return "高速"
 
 func description() -> String:
-	return "沿选定方向高速蔓延，蔓延间隔更短。"
+	return "17消耗，核心存在15s，每1s向指定方向扩散一格\n为什么这个触手看起来这么像舌头啊”“这不就是舌头吗”"
 
 func spread_candidates(cell: Vector2i, payload: Dictionary) -> Array[Vector2i]:
 	var dir: Vector2i = payload.get("dir", Vector2i.ZERO)
