@@ -40,6 +40,9 @@ var item_defs: Dictionary = {}
 ## 库存：item_id -> 数量（本局持有，可堆叠；跨轮次保留，新一局清空）
 var stock: Dictionary = {}
 
+## 本关已消耗的道具：item_id -> 数量（仅用于「手动重置本关」时返还）
+var _round_consumed := {}
+
 ## 「急速增殖」标记：uid -> true（只对标记的那一颗核心生效）
 var _spread_boost := {}
 
@@ -108,7 +111,7 @@ func grant(item_id: String) -> void:
 	stock[item_id] = count_of(item_id) + 1
 	refresh_bar()
 
-## 扣除一件；数量不足返回 false（不扣）
+## 扣除一件；数量不足返回 false（不扣）。成功时记入「本关消耗」（供重置返还）
 func consume(item_id: String) -> bool:
 	var n := count_of(item_id)
 	if n <= 0:
@@ -117,19 +120,29 @@ func consume(item_id: String) -> bool:
 		stock.erase(item_id)
 	else:
 		stock[item_id] = n - 1
+	_round_consumed[item_id] = int(_round_consumed.get(item_id, 0)) + 1
 	refresh_bar()
 	return true
 
 ## 新一局（进入 hex_game）清空库存与临时效果
 func reset_run() -> void:
 	stock.clear()
+	_round_consumed.clear()
 	_spread_boost.clear()
 	_turret_slows.clear()
 	armed_item_id = ""
 	refresh_bar()
 
-## 每轮（关卡）重置：清掉与场上实例绑定的临时效果（部署/炮台已重建）
-func on_round_reset() -> void:
+## 每轮（关卡）重置：清掉与场上实例绑定的临时效果（部署/炮台已重建），并清空本关消耗记录。
+## restore_consumed=true（手动重置本关）：先把本关消耗的道具退回库存再清空；否则直接清空（通关换关不返还）。
+func on_round_reset(restore_consumed: bool = false) -> void:
+	if restore_consumed and not _round_consumed.is_empty():
+		for item_id in _round_consumed.keys():
+			var n := int(_round_consumed[item_id])
+			stock[str(item_id)] = count_of(str(item_id)) + n
+		game.hud.set_status("已重置本关：本关消耗的道具已返还")
+		game.hud.update_status()
+	_round_consumed.clear()
 	_spread_boost.clear()
 	_turret_slows.clear()
 	armed_item_id = ""

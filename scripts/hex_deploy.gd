@@ -235,7 +235,10 @@ func start() -> void:
 		game.hud.set_status("变形之地：%d 颗核心变身成其他核心（产生 %d 种不同核心类型）" % [transformed, int(swap_info.get("types", 0))])
 	game.queue_redraw()
 
-func reset() -> void:
+## 复位本关到部署阶段。
+## restore_consumed=true：手动重置本关（HUD「重置」按钮）——已用道具退还库存；
+## 其余调用（通关换关 / 切编辑 / 导入地图 / 教程）默认 false，只清临时效果不返还。
+func reset(restore_consumed: bool = false) -> void:
 	game.phase = game.Phase.DEPLOY
 	game.deploy_points = PlayerCore.DEPLOY_COST_START
 	game.battle_time = 0.0
@@ -255,7 +258,7 @@ func reset() -> void:
 	game.mode_spread_timers.clear()
 	game.turrets.rebuild()
 	if game.items != null:
-		game.items.on_round_reset()  # 每轮：清掉绑定在场实例上的道具临时效果
+		game.items.on_round_reset(restore_consumed)  # 手动重置本关时返还已消耗道具
 	game.awaiting_direction = false
 	game.start_button.disabled = (game.mode == game.Mode.EDIT)
 	game.hud.update_cost_ui()

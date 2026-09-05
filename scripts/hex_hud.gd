@@ -55,7 +55,8 @@ func build_hud() -> void:
 
 	var reset_button := Button.new()
 	reset_button.text = "重置"
-	reset_button.pressed.connect(game.deploy.reset)
+	# 手动重置本关：退还本关已消耗的道具（与通关换关等自动 reset 区分）
+	reset_button.pressed.connect(game.deploy.reset.bind(true))
 	hbox.add_child(reset_button)
 
 	game.mode_button = Button.new()
