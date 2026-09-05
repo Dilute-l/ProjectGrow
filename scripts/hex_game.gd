@@ -726,10 +726,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif event.button_index == MOUSE_BUTTON_RIGHT:
 				deploy.try_remove(cell)
 	elif event is InputEventKey and event.pressed:
-		# 数字键选择核心类型（与右下角 UI 同步）
-		for i in range(core_types.size()):
-			if event.keycode == KEY_1 + i:
-				hud.select_core(i)
+		# 数字键选择核心类型（与右下角 UI 同步；只按显示顺序对应已解锁核心）
+		var visible_cores: Array[int] = hud.visible_core_indices()
+		for k in range(visible_cores.size()):
+			if event.keycode == KEY_1 + k:
+				hud.select_core(visible_cores[k])
 				return
 		if (event.keycode == KEY_SPACE or event.keycode == KEY_ENTER) and phase == Phase.DEPLOY:
 			deploy.start()

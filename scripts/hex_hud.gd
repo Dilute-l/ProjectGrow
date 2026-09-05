@@ -12,6 +12,8 @@ var game
 var buff_button: Button
 var buff_layer: CanvasLayer
 var buff_content: VBoxContainer
+# 核心选择按钮所在容器（解锁变化时重建按钮用）
+var core_buttons_box: VBoxContainer
 
 func _init(g) -> void:
 	game = g
@@ -81,6 +83,7 @@ func build_core_selector() -> void:
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 6)
 	margin.add_child(vbox)
+	core_buttons_box = vbox
 
 	# 本局词条总览按钮（位于部署费用条上方）
 	var buff_row := HBoxContainer.new()
@@ -118,24 +121,46 @@ func build_core_selector() -> void:
 	title.add_theme_font_size_override("font_size", 16)
 	vbox.add_child(title)
 
-	var group := ButtonGroup.new()
-	for i in range(game.core_types.size()):
-		var t: Dictionary = game.core_types[i]
-		var locked: bool = not game.unlocked_core_ids.has(str(t.get("id", "")))
-		var btn := Button.new()
-		btn.text = ("🔒 " if locked else "") + str(t.get("name", "核心"))
-		btn.disabled = locked
-		btn.toggle_mode = true
-		btn.button_group = group
-		btn.custom_minimum_size = Vector2(140, 0)
-		btn.pressed.connect(select_core.bind(i))
-		game.core_buttons.append(btn)
-		vbox.add_child(btn)
-	if game.selected_core >= 0 and game.selected_core < game.core_buttons.size():
-		game.core_buttons[game.selected_core].button_pressed = true
+	# 只显示已解锁的核心；未解锁的直接不显示（不再以 🔒 占位）
+	_populate_core_buttons(vbox)
 
 	# 先添加子节点再设置锚点，确保按实际内容尺寸定位到右下角
 	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
+
+## 重建核心选择按钮：仅列出已解锁核心，每个按钮用 meta("core_type") 记录其 core_types 索引
+func _populate_core_buttons(parent: Control) -> void:
+	for b in game.core_buttons:
+		if is_instance_valid(b):
+			b.queue_free()
+	game.core_buttons.clear()
+	var group := ButtonGroup.new()
+	for i in range(game.core_types.size()):
+		if not _type_unlocked(i):
+			continue  # 未解锁的核心不显示
+		var t: Dictionary = game.core_types[i]
+		var btn := Button.new()
+		btn.text = str(t.get("name", "核心"))
+		btn.toggle_mode = true
+		btn.button_group = group
+		btn.custom_minimum_size = Vector2(140, 0)
+		btn.set_meta("core_type", i)
+		btn.pressed.connect(select_core.bind(i))
+		game.core_buttons.append(btn)
+		parent.add_child(btn)
+	# 恢复选中高亮（按 meta 的 core_type 匹配，而非按钮下标）
+	if game.selected_core >= 0 and _type_unlocked(game.selected_core):
+		for b in game.core_buttons:
+			if int(b.get_meta("core_type", -1)) == game.selected_core:
+				b.button_pressed = true
+				break
+
+## 已解锁核心的 type_idx 列表（按 core_types 顺序），供数字键等按显示顺序选择
+func visible_core_indices() -> Array[int]:
+	var out: Array[int] = []
+	for i in range(game.core_types.size()):
+		if _type_unlocked(i):
+			out.append(i)
+	return out
 
 func select_core(i: int) -> void:
 	if i < 0 or i >= game.core_types.size():
@@ -145,8 +170,8 @@ func select_core(i: int) -> void:
 		return
 	game.selected_core = i
 	game.awaiting_direction = false
-	for j in range(game.core_buttons.size()):
-		game.core_buttons[j].button_pressed = (j == i)
+	for b in game.core_buttons:
+		b.button_pressed = (int(b.get_meta("core_type", -1)) == i)
 	if game.tutorial_spotlight == "core":
 		game.tutorial_spotlight = "map"
 		game.guide.update_spotlight()
@@ -163,16 +188,12 @@ func _type_unlocked(i: int) -> bool:
 		return game.rewards.is_type_unlocked(i)
 	return game.unlocked_core_ids.has(str(game.core_types[i].get("id", "")))
 
-## 解锁状态变化后刷新选择栏（按钮禁用 / 🔒 前缀；若当前选中的核心被锁则复位）
+## 解锁状态变化后刷新选择栏：重新生成按钮（只显示已解锁核心），并复位失效的选中项
 func refresh_core_unlocks() -> void:
-	for i in range(game.core_buttons.size()):
-		if i >= game.core_types.size():
-			continue
-		var locked: bool = not game.unlocked_core_ids.has(str(game.core_types[i].get("id", "")))
-		game.core_buttons[i].disabled = locked
-		game.core_buttons[i].text = ("🔒 " if locked else "") + str(game.core_types[i].get("name", "核心"))
 	if game.selected_core >= 0 and not _type_unlocked(game.selected_core):
 		game.selected_core = -1
+	if core_buttons_box != null:
+		_populate_core_buttons(core_buttons_box)
 	update_status()
 	game.queue_redraw()
 
