@@ -57,15 +57,65 @@ const ATTACK_INTERVAL_DEFAULT := 0.5   # 攻击间隔默认值（秒），与原
 const ATTACK_RANGE_DEFAULT := 3        # 攻击范围默认值（六边形立方体距离，单位：格）
 const NO_TARGET := Vector2i(2147483647, 2147483647)  # “无目标”哨兵值
 
-# 敌方炮台类型：名称 -> {range(攻击范围，格), interval_mult(攻速倍率，相对基础间隔)}
-const TURRET_TYPES := {
-	"basic": {"range": 3, "interval_mult": 3},   # 基础
-	"sniper": {"range": 4, "interval_mult": 5},  # 范围大一格、攻速更慢
-	"rapid": {"range": 2, "interval_mult": 1.5},   # 范围小一格、攻速更快
-	"beam": {"range": 4, "interval_mult": 8},    # 射线清除：范围4，攻击间隔长
-	"sweeper": {"range": 2, "interval_mult": 8},  # 扫荡凝视：范围2圈，4秒清除范围内所有触手
-	"mortar": {"range": 3, "interval_mult": 7},   # 炮塔：普通索敌，3.5秒清除目标一圈内所有触手
+# 敌方炮台类型：id -> {name(中文显示名), range(攻击范围，格), interval_mult(攻速倍率，相对基础间隔), attack(攻击方式)}
+# 数值与中文名统一维护在 maps/enemies.json —— 修改该 JSON 后，游戏内所有相关处同步生效。
+const ENEMIES_PATH := "res://maps/enemies.json"
+
+# enemies.json 缺失 / 损坏时的兜底（应与 enemies.json 保持一致）
+const ENEMIES_FALLBACK: Dictionary = {
+	"basic": {"name": "基础炮台", "range": 3, "interval_mult": 3.0, "attack": "single",
+		"desc": "最最普通的见习魔法少女，正怀着拯救世界的理想而努力着，梦想有一天能够通过考核成为正式魔法少女"},
+	"sniper": {"name": "狙击炮台", "range": 4, "interval_mult": 5.0, "attack": "single",
+		"desc": "她的目光一直很长远，却因为拖延症而总被眼前积堆如山的事务所困扰"},
+	"rapid": {"name": "速射炮台", "range": 2, "interval_mult": 1.5, "attack": "single",
+		"desc": "做事速度太快，以至于出门后她的衣服还在衣柜里等她"},
+	"beam": {"name": "光束炮台", "range": 4, "interval_mult": 8.0, "attack": "line",
+		"desc": "\"oabehsamatow！\"这是曾经的前辈教给她的咒语，很适合她的身体发挥出最大威力"},
+	"sweeper": {"name": "扫荡凝视", "range": 2, "interval_mult": 8.0, "attack": "area",
+		"desc": "她总是很忧郁，作为一个巫女，最喜欢的传说故事是八岐大蛇"},
+	"mortar": {"name": "炮塔", "range": 3, "interval_mult": 7.0, "attack": "splash",
+		"desc": "没有什么麻烦是碳酸二丁酯炸药无法解决的，如果有，那就……"},
 }
+
+# 类型 id -> 定义字典（运行时从 maps/enemies.json 加载）
+static var TURRET_TYPES: Dictionary = {}
+
+## 从 maps/enemies.json 加载敌方炮台类型；缺失 / 为空时回退到内置兜底
+static func load_enemy_defs() -> void:
+	TURRET_TYPES.clear()
+	if FileAccess.file_exists(ENEMIES_PATH):
+		var f := FileAccess.open(ENEMIES_PATH, FileAccess.READ)
+		if f != null:
+			var text := f.get_as_text()
+			f.close()
+			var data = JSON.parse_string(text)
+			if data is Dictionary and data.get("enemies") is Array:
+				for entry in data["enemies"]:
+					if entry is Dictionary:
+						var id := str(entry.get("id", ""))
+						if id != "":
+							TURRET_TYPES[id] = {
+								"name": str(entry.get("name", id)),
+								"range": int(entry.get("range", 3)),
+								"interval_mult": float(entry.get("interval_mult", 1.0)),
+								"attack": str(entry.get("attack", "single")),
+								"desc": str(entry.get("desc", "")),
+							}
+	if TURRET_TYPES.is_empty():
+		for k in ENEMIES_FALLBACK:
+			TURRET_TYPES[k] = (ENEMIES_FALLBACK[k] as Dictionary).duplicate()
+
+## 取某类型定义；未知类型回退为 basic
+static func enemy_def(type_name: String) -> Dictionary:
+	return TURRET_TYPES.get(type_name, ENEMIES_FALLBACK.get("basic", {}))
+
+## 取某类型的中文显示名；未知类型回显 id 本身
+static func enemy_name(type_name: String) -> String:
+	return str(TURRET_TYPES.get(type_name, {}).get("name", type_name))
+
+## 取某类型的描述；未知类型返回空串
+static func enemy_desc(type_name: String) -> String:
+	return str(TURRET_TYPES.get(type_name, {}).get("desc", ""))
 
 # 光束炮台的 6 条单方向射线（六邻域各一个方向），用于射线清除型炮台
 const RAYS: Array[Vector2i] = [
@@ -97,6 +147,8 @@ var attack_range := ATTACK_RANGE_DEFAULT
 var turret_type := "basic"
 ## 攻速倍率（相对基础间隔；由类型决定）
 var interval_mult := 1.0
+## 攻击方式（single / line / area / splash；来自类型定义，见 maps/enemies.json）
+var attack_style := "single"
 ## 距下次攻击已累计的秒数（只应由 tick() 推进；原 turrets[coord] 的值）
 var attack_timer := 0.0
 ## 眩晕剩余秒数（>0 时停止攻击并冻结充能；由「清算反噬」类词条施加）
@@ -110,9 +162,10 @@ var stun_timer := 0.0
 func setup(cell: Vector2i, type_name: String = "basic", base_interval: float = ATTACK_INTERVAL_DEFAULT) -> void:
 	coord = cell
 	turret_type = type_name
-	var stats: Dictionary = TURRET_TYPES.get(type_name, TURRET_TYPES["basic"])
+	var stats: Dictionary = enemy_def(type_name)
 	attack_range = int(stats["range"])
 	interval_mult = float(stats["interval_mult"])
+	attack_style = str(stats.get("attack", "single"))
 	set_base_interval(base_interval)
 	reset()
 
@@ -240,17 +293,17 @@ func choose_target(polluted: Dictionary) -> Vector2i:
 			best = cell
 	return best
 
-## 是否为直线清除型炮台（beam）
+## 是否为直线清除型炮台（beam，attack=line）
 func is_beam() -> bool:
-	return turret_type == "beam"
+	return attack_style == "line"
 
-## 是否为扫荡凝视（范围内AOE清除）
+## 是否为扫荡凝视（范围内AOE清除，attack=area）
 func is_sweeper() -> bool:
-	return turret_type == "sweeper"
+	return attack_style == "area"
 
-## 是否为炮塔（目标周围一圈AOE清除）
+## 是否为炮塔（目标周围一圈AOE清除，attack=splash）
 func is_mortar() -> bool:
-	return turret_type == "mortar"
+	return attack_style == "splash"
 
 ## 射线清除型：在 6 条单方向射线中选“含最多污染地块”的一条，返回该射线上的所有污染地块
 func choose_line_targets(polluted: Dictionary) -> Array:

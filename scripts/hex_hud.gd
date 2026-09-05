@@ -23,45 +23,8 @@ func build_hud() -> void:
 	layer.layer = 10
 	game.add_child(layer)
 	game.hud_layer = layer
-
-	var panel := PanelContainer.new()
-	panel.position = Vector2(16, 12)
-	layer.add_child(panel)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_bottom", 12)
-	panel.add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
-	margin.add_child(vbox)
-
-	game.status_label = Label.new()
-	game.status_label.add_theme_font_size_override("font_size", 16)
-	game.status_label.add_theme_color_override("font_color", Color("ffd166"))
-	vbox.add_child(game.status_label)
-
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 10)
-	vbox.add_child(hbox)
-
-	game.start_button = Button.new()
-	game.start_button.text = "开始扩散"
-	game.start_button.pressed.connect(game.deploy.start)
-	hbox.add_child(game.start_button)
-
-	var reset_button := Button.new()
-	reset_button.text = "重置"
-	reset_button.pressed.connect(game.deploy.reset)
-	hbox.add_child(reset_button)
-
-	game.mode_button = Button.new()
-	game.mode_button.text = "编辑模式"
-	game.mode_button.pressed.connect(game.editor.toggle_mode)
-	hbox.add_child(game.mode_button)
+	# 左上角菜单已移除：状态栏 / 开始扩散 / 重置 / 编辑模式 均不再显示在左上角。
+	# （重置、编辑模式已迁移到 ESC 暂停菜单；开始战斗改用 Enter 键）
 
 func build_core_selector() -> void:
 	game.core_selector_ui.build()

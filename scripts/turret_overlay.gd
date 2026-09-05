@@ -53,6 +53,7 @@ func _draw() -> void:
 			draw_circle(tc, main.hex_size * 0.52, main.COL_TURRET_DEAD)
 			draw_line(tc + Vector2(-1, -1) * main.hex_size * 0.3, tc + Vector2(1, 1) * main.hex_size * 0.3, ring_col, 3.0)
 			draw_line(tc + Vector2(-1, 1) * main.hex_size * 0.3, tc + Vector2(1, -1) * main.hex_size * 0.3, ring_col, 3.0)
+	_draw_hover_hint(main)
 
 ## 炮台类型 -> 主体颜色
 func _turret_body_color(type_name: String, main) -> Color:
@@ -102,3 +103,48 @@ func _draw_turret_texture(center: Vector2, tex: Texture2D, hex_size: float) -> v
 	var span: float = float(tex.get_width()) * scale
 	var top_left: Vector2 = center - TURRET_ART_CENTER * scale
 	draw_texture_rect(tex, Rect2(top_left, Vector2(span, span)), false)
+
+## 悬停提示：鼠标停留在敌方炮台上时，绘制名称 + 描述信息条
+func _draw_hover_hint(main) -> void:
+	if not main.turret_types.has(main.hover_cell):
+		return
+	var type_name: String = str(main.turret_types.get(main.hover_cell, "basic"))
+	var font := ThemeDB.fallback_font
+	if font == null:
+		return
+	var fsize := 13
+	var max_w := 360.0
+	var title := "【敌方炮台】" + EnemyTurret.enemy_name(type_name)
+	var desc := EnemyTurret.enemy_desc(type_name)
+	var lines: Array = [title]
+	if desc != "":
+		lines.append_array(_wrap_text_lines(font, desc, max_w, fsize))
+	var w := 60.0
+	for t in lines:
+		w = maxf(w, font.get_string_size(str(t), HORIZONTAL_ALIGNMENT_LEFT, -1, fsize).x)
+	var lh := float(fsize + 5)
+	var h := lh * lines.size() + 18.0
+	var pos: Vector2 = main.geometry.hex_center(main.hover_cell) + Vector2(10, 30)
+	var bg := Rect2(pos - Vector2(6, 6), Vector2(w + 14.0, h))
+	draw_rect(bg, Color(0.04, 0.05, 0.10, 0.92))
+	draw_rect(bg.grow(-1.0), Color(1.0, 0.55, 0.55, 0.6), false, 1.0)
+	var y := pos.y
+	for i in range(lines.size()):
+		var tc := Color("ffd166") if i == 0 else Color("cfe0ff")
+		draw_string(font, Vector2(pos.x, y), str(lines[i]), HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, tc)
+		y += lh
+
+## 按最大宽度逐字符折行（适配中文），返回行文本数组
+func _wrap_text_lines(font: Font, text: String, max_w: float, fsize: int) -> Array:
+	var lines: Array = []
+	var cur := ""
+	for ch in text:
+		var test := cur + ch
+		if cur != "" and font.get_string_size(test, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize).x > max_w:
+			lines.append(cur)
+			cur = ch
+		else:
+			cur = test
+	if cur != "":
+		lines.append(cur)
+	return lines

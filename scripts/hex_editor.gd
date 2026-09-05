@@ -8,16 +8,6 @@ extends RefCounted
 
 var game
 
-# 炮台种类显示名（与 EnemyTurret.TURRET_TYPES 的 key 对应）
-const TURRET_TYPE_LABELS := {
-	"basic": "基础炮台",
-	"sniper": "狙击炮台",
-	"rapid": "速射炮台",
-	"beam": "光束炮台",
-	"sweeper": "扫荡凝视",
-	"mortar": "炮塔",
-}
-
 # 炮台种类下拉框与其 key 列表（构建编辑器 UI 时填充）
 var turret_type_option: OptionButton
 var turret_type_keys: Array = []
@@ -35,6 +25,8 @@ func set_mode(m: int) -> void:
 	game.core_selector_layer.visible = (game.mode == game.Mode.PLAY)
 	if game.mode_button:
 		game.mode_button.text = "编辑模式" if game.mode == game.Mode.PLAY else "游玩模式"
+	if game.edit_mode_button:
+		game.edit_mode_button.text = "编辑模式" if game.mode == game.Mode.PLAY else "游玩模式"
 	game.hud.update_status()
 	game.queue_redraw()
 
@@ -83,7 +75,7 @@ func _on_turret_type_selected(idx: int) -> void:
 		game.editor_turret_type = str(turret_type_keys[idx])
 
 func _turret_type_label(key: String) -> String:
-	return TURRET_TYPE_LABELS.get(key, key)
+	return EnemyTurret.enemy_name(key)
 
 func change_radius(delta: int) -> void:
 	game.map_radius = clampi(game.map_radius + delta, 1, 10)

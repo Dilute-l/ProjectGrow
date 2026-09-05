@@ -25,15 +25,6 @@ var special_kind_ids: Array = []       # 与下拉项对应的种类 id
 var special_auto_check: CheckBox       # 每场随机（测试布尔）开关
 var special_counts_label: Label        # 本局持有/一次性 统计
 
-const TURRET_TYPE_LABELS := {
-	"basic": "基础",
-	"sniper": "狙击",
-	"rapid": "快速",
-	"beam": "光束",
-	"sweeper": "扫荡凝视",
-	"mortar": "炮塔",
-}
-
 func _init(g) -> void:
 	game = g
 
@@ -308,11 +299,11 @@ func _turret_current_interval(type_name: String) -> float:
 	return _default_effective_interval(type_name)
 
 func _default_effective_interval(type_name: String) -> float:
-	var stats: Dictionary = EnemyTurret.TURRET_TYPES.get(type_name, EnemyTurret.TURRET_TYPES["basic"])
+	var stats: Dictionary = EnemyTurret.enemy_def(type_name)
 	return game.enemy_attack_interval * float(stats["interval_mult"])
 
 func _turret_type_label(type_name: String) -> String:
-	return str(TURRET_TYPE_LABELS.get(type_name, type_name))
+	return EnemyTurret.enemy_name(type_name)
 
 func _on_special_designate_pressed() -> void:
 	if special_kind_option == null or special_kind_ids.is_empty():

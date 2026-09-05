@@ -56,7 +56,7 @@ func covering_type(cell: Vector2i) -> String:
 	if game.mode == game.Mode.EDIT:
 		for p in game.turret_positions:
 			var type_name: String = str(game.turret_types.get(p, "basic"))
-			var stats: Dictionary = EnemyTurret.TURRET_TYPES.get(type_name, EnemyTurret.TURRET_TYPES["basic"])
+			var stats: Dictionary = EnemyTurret.enemy_def(type_name)
 			if game.geometry.cube_dist(cell, p) <= int(stats["range"]):
 				return type_name
 	else:

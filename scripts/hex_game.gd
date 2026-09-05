@@ -173,9 +173,10 @@ var game_speed := 1.0
 var game_controls_layer: CanvasLayer
 var pause_button: Button
 var speed_button: Button
-# 暂停菜单（ESC 打开）：变暗遮罩 + 继续游戏 / 重置 / 回到主菜单
+# 暂停菜单（ESC 打开）：变暗遮罩 + 继续游戏 / 重置 / 编辑模式 / 回到主菜单
 var pause_menu_open := false
 var pause_menu_layer: CanvasLayer
+var edit_mode_button: Button   # 暂停菜单中的“编辑模式/游玩模式”切换按钮
 
 # 部署费用条（位于核心类型选择区上方）
 var cost_bar: ProgressBar
@@ -235,6 +236,7 @@ func _create_modules() -> void:
 # ---------------------------------------------------------------------------
 func _ready() -> void:
 	_create_modules()
+	EnemyTurret.load_enemy_defs()   # 从 maps/enemies.json 加载敌方炮台类型（数值 + 中文名）
 	map_data.load_map()
 	map_data.load_cores()
 	map_data.register_core_modes()
@@ -267,6 +269,8 @@ func _ready() -> void:
 	deploy.reset()
 	queue_redraw()
 	guide.check_first_run()
+	# 开局默认进入暂停（而非停留在等待部署状态）
+	_set_paused(true)
 	# 窗口尺寸变化时，自动重算地图大小与位置
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 
@@ -711,6 +715,7 @@ func _load_level(idx: int) -> void:
 	geometry.fit_hex_size()
 	geometry.recenter()
 	deploy.reset()
+	_set_paused(true)   # 每关开局默认进入暂停
 	queue_redraw()
 
 # ---------------------------------------------------------------------------
@@ -756,13 +761,21 @@ func _build_game_controls() -> void:
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
 
 func _toggle_pause() -> void:
-	paused = not paused
+	_set_paused(not paused)
+
+## 设置暂停状态，并同步右上角按钮与状态栏文案
+func _set_paused(on: bool) -> void:
+	paused = on
 	if pause_button != null:
 		pause_button.text = "继续" if paused else "暂停"
 	if paused:
 		hud.set_status("已暂停（空格继续 / F 调速；仍可部署核心）")
 	else:
-		hud.update_status()
+		# 解除暂停时，若仍在游玩模式的部署阶段，视为“开始扩散”
+		if mode == Mode.PLAY and phase == Phase.DEPLOY:
+			deploy.start()
+		else:
+			hud.update_status()
 	queue_redraw()
 
 func _cycle_speed() -> void:
@@ -823,6 +836,12 @@ func _build_pause_menu() -> void:
 	reset_btn.pressed.connect(_on_pause_menu_reset)
 	vbox.add_child(reset_btn)
 
+	edit_mode_button = Button.new()
+	edit_mode_button.text = "编辑模式"
+	edit_mode_button.custom_minimum_size = Vector2(240, 0)
+	edit_mode_button.pressed.connect(_on_pause_menu_edit_mode)
+	vbox.add_child(edit_mode_button)
+
 	var menu_btn := Button.new()
 	menu_btn.text = "回到主菜单"
 	menu_btn.custom_minimum_size = Vector2(240, 0)
@@ -841,10 +860,15 @@ func _close_pause_menu() -> void:
 		pause_menu_layer.visible = false
 	queue_redraw()
 
-## 重置：与左上角“重置”按钮完全一致（deploy.reset()）
+## 重置：重置当前关卡到部署阶段（deploy.reset()）
 func _on_pause_menu_reset() -> void:
 	_close_pause_menu()
 	deploy.reset()
+
+## 切换编辑模式（关闭暂停菜单后切换，与原左上角“编辑模式”按钮一致）
+func _on_pause_menu_edit_mode() -> void:
+	_close_pause_menu()
+	editor.toggle_mode()
 
 func _on_pause_menu_main_menu() -> void:
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")

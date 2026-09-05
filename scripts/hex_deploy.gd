@@ -214,9 +214,6 @@ func _random_valid_direction(cell: Vector2i) -> Vector2i:
 func start() -> void:
 	if game.phase != game.Phase.DEPLOY:
 		return
-	if game.units.is_empty():
-		game.hud.set_status("请至少部署一个单位")
-		return
 	# 变形之地：战斗开始瞬间（仍在 DEPLOY 阶段、尚未进入 RUNNING）把坐在变形之地上
 	# 的核心统一变身成随机其他核心（从【所有】核心类型中选取，不只已解锁）。
 	var swap_info: Dictionary = _transform_units_on_swap_tiles()
@@ -229,7 +226,8 @@ func start() -> void:
 	game.drop_effects.on_battle_start()
 	for t in game.turret_map.values():
 		t.reset()
-	game.start_button.disabled = true
+	if game.start_button != null:
+		game.start_button.disabled = true
 	game.hud.update_status()
 	if transformed > 0:
 		game.hud.set_status("变形之地：%d 颗核心变身成其他核心（产生 %d 种不同核心类型）" % [transformed, int(swap_info.get("types", 0))])
@@ -257,7 +255,8 @@ func reset() -> void:
 	if game.items != null:
 		game.items.on_round_reset()  # 每轮：清掉绑定在场实例上的道具临时效果
 	game.awaiting_direction = false
-	game.start_button.disabled = (game.mode == game.Mode.EDIT)
+	if game.start_button != null:
+		game.start_button.disabled = (game.mode == game.Mode.EDIT)
 	game.hud.update_cost_ui()
 	game.hud.update_status()
 	game.queue_redraw()

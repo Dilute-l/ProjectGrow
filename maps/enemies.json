@@ -1,0 +1,52 @@
+{
+  "enemies": [
+    {
+      "id": "basic",
+      "name": "基础炮台",
+      "range": 3,
+      "interval_mult": 3,
+      "attack": "single",
+      "desc": "最最普通的见习魔法少女，正怀着拯救世界的理想而努力着，梦想有一天能够通过考核成为正式魔法少女"
+    },
+    {
+      "id": "sniper",
+      "name": "狙击炮台",
+      "range": 4,
+      "interval_mult": 5,
+      "attack": "single",
+      "desc": "她的目光一直很长远，却因为拖延症而总被眼前积堆如山的事务所困扰"
+    },
+    {
+      "id": "rapid",
+      "name": "速射炮台",
+      "range": 2,
+      "interval_mult": 1.5,
+      "attack": "single",
+      "desc": "做事速度太快，以至于出门后她的衣服还在衣柜里等她"
+    },
+    {
+      "id": "beam",
+      "name": "光束炮台",
+      "range": 4,
+      "interval_mult": 8,
+      "attack": "line",
+      "desc": "\"oabehsamatow！\"这是曾经的前辈教给她的咒语，很适合她的身体发挥出最大威力"
+    },
+    {
+      "id": "sweeper",
+      "name": "扫荡凝视",
+      "range": 2,
+      "interval_mult": 8,
+      "attack": "area",
+      "desc": "她总是很忧郁，作为一个巫女，最喜欢的传说故事是八岐大蛇"
+    },
+    {
+      "id": "mortar",
+      "name": "炮塔",
+      "range": 3,
+      "interval_mult": 7,
+      "attack": "splash",
+      "desc": "没有什么麻烦是碳酸二丁酯炸药无法解决的，如果有，那就……"
+    }
+  ]
+}

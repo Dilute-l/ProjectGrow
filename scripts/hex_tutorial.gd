@@ -55,6 +55,7 @@ func on_attack_wait() -> void:
 	# growth 播完：让游戏继续运行，等待敌方第一次攻击
 	game.tutorial_active = false
 	game.tutorial_gate = "attack"
+	game._set_paused(false)   # 需要战斗运行以触发敌方攻击，取消开局暂停
 
 func on_deployed() -> void:
 	game.tutorial_spotlight = ""

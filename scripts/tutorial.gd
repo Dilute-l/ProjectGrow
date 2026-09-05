@@ -7,7 +7,7 @@ extends CanvasLayer
 ##   - resource 第一句 => 发 core_selector_highlight_requested（聚光灯照右下角核心选择区）
 ##   - resource 最后一句 => 等待我方部署一个触手（deploy_wait_started / notify_deployed）
 ##   - growth 播完 => 等待敌方第一次攻击（attack_wait_started / notify_enemy_attacked）
-## 视觉：聚光灯变暗（可挖洞高亮）+ 左侧占位符立绘 + 底部居中对话框（右下角“继续”）；点击任意位置推进。
+## 视觉：聚光灯变暗（可挖洞高亮）+ 左侧立绘 + 底部居中对话框（右下角“继续”）；点击任意位置推进。
 
 signal finished
 signal core_selector_highlight_requested
@@ -15,6 +15,7 @@ signal deploy_wait_started
 signal attack_wait_started
 
 const DIALOGUE_PATH := "res://data/tutorial_dialogue.json"
+const PORTRAIT := preload("res://images/brain_washed/brain washed_001.png")
 
 # 聚光灯遮罩：整屏变暗，但可挖出一个矩形“洞”作为高亮
 class SpotlightDim:
@@ -89,18 +90,21 @@ func _build_ui() -> void:
 	spotlight_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(spotlight_dim)
 
-	# 2) 占位符立绘（屏幕左侧，垂直居中）
-	var portrait := Panel.new()
-	portrait.custom_minimum_size = Vector2(220, 420)
+	# 2) 立绘（屏幕左侧，下端对齐屏幕底边；高度约占屏幕 75%；Brain Washed 立绘，等比缩放）
+	var portrait_size := Vector2(675, 675)
+	var portrait := TextureRect.new()
+	portrait.texture = PORTRAIT
+	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	portrait.custom_minimum_size = portrait_size
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(portrait)
-	portrait.set_anchors_and_offsets_preset(Control.PRESET_CENTER_LEFT, Control.PRESET_MODE_MINSIZE, 40)
-	var portrait_label := Label.new()
-	portrait_label.text = "立绘占位符"
-	portrait_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	portrait_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	portrait_label.set_anchors_preset(Control.PRESET_FULL_RECT)
-	portrait.add_child(portrait_label)
+	# 显式设置锚点与偏移：左侧 40px、下端对齐屏幕底边
+	portrait.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	portrait.offset_left = 40.0
+	portrait.offset_top = -portrait_size.y
+	portrait.offset_right = 40.0 + portrait_size.x
+	portrait.offset_bottom = 0.0
 
 	# 3) 对话框（底部居中，右下角含“继续”按钮）
 	panel = PanelContainer.new()
