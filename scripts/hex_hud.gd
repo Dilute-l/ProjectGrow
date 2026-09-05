@@ -8,6 +8,11 @@ extends RefCounted
 
 var game
 
+# —— 本局词条（Buff）总览弹窗 ——
+var buff_button: Button
+var buff_layer: CanvasLayer
+var buff_content: VBoxContainer
+
 func _init(g) -> void:
 	game = g
 
@@ -76,6 +81,17 @@ func build_core_selector() -> void:
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 6)
 	margin.add_child(vbox)
+
+	# 本局词条总览按钮（位于部署费用条上方）
+	var buff_row := HBoxContainer.new()
+	buff_row.add_theme_constant_override("separation", 6)
+	vbox.add_child(buff_row)
+	buff_button = Button.new()
+	buff_button.text = "🧪 本局词条"
+	buff_button.custom_minimum_size = Vector2(140, 0)
+	buff_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	buff_button.pressed.connect(toggle_buff_overview)
+	buff_row.add_child(buff_button)
 
 	# 部署费用条（实时显示剩余费用；位于核心类型上方）
 	var cost_row := HBoxContainer.new()
@@ -191,3 +207,190 @@ func update_status() -> void:
 		set_status("胜利！所有敌方炮台都被污染损毁")
 	elif game.phase == game.Phase.LOST:
 		set_status("失败！所有单位核心已结束，而仍有存活的敌方炮台")
+
+# ---------------------------------------------------------------------------
+# 本局词条（Buff）总览弹窗
+# ---------------------------------------------------------------------------
+## 构建弹窗层（一次即可）；内容在每次打开时重建
+func build_buff_overview() -> void:
+	buff_layer = CanvasLayer.new()
+	buff_layer.layer = 24
+	buff_layer.visible = false
+	game.add_child(buff_layer)
+
+	var dim := ColorRect.new()
+	dim.color = Color(0.0, 0.0, 0.0, 0.62)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	buff_layer.add_child(dim)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	buff_layer.add_child(center)
+
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(600, 540)
+	center.add_child(scroll)
+
+	var panel := PanelContainer.new()
+	scroll.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 20)
+	margin.add_theme_constant_override("margin_top", 14)
+	margin.add_theme_constant_override("margin_right", 20)
+	margin.add_theme_constant_override("margin_bottom", 14)
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	margin.add_child(vbox)
+
+	var top := HBoxContainer.new()
+	vbox.add_child(top)
+	var title := Label.new()
+	title.text = "本局获得的词条（Buff）"
+	title.add_theme_font_size_override("font_size", 22)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(title)
+	var close_btn := Button.new()
+	close_btn.text = "关闭"
+	close_btn.pressed.connect(close_buff_overview)
+	top.add_child(close_btn)
+
+	var note := Label.new()
+	note.text = "作用于全体的词条会标注「全体」；只强化特定核心的词条会标明其核心。"
+	note.add_theme_color_override("font_color", Color("9fb0cc"))
+	note.add_theme_font_size_override("font_size", 13)
+	vbox.add_child(note)
+
+	buff_content = VBoxContainer.new()
+	buff_content.add_theme_constant_override("separation", 4)
+	vbox.add_child(buff_content)
+
+func toggle_buff_overview() -> void:
+	if game.buff_overview_open:
+		close_buff_overview()
+	else:
+		open_buff_overview()
+
+func open_buff_overview() -> void:
+	if buff_layer == null:
+		return
+	game.buff_overview_open = true
+	_fill_buff_overview()
+	buff_layer.visible = true
+	game.queue_redraw()
+
+func close_buff_overview() -> void:
+	game.buff_overview_open = false
+	if buff_layer != null:
+		buff_layer.visible = false
+	game.queue_redraw()
+
+func _fill_buff_overview() -> void:
+	if buff_content == null:
+		return
+	for ch in buff_content.get_children():
+		buff_content.remove_child(ch)
+		ch.queue_free()
+	# 当前已解锁的核心 id 集合
+	var unlocked: Array = []
+	for i in range(game.core_types.size()):
+		if game.rewards != null and game.rewards.is_type_unlocked(i):
+			unlocked.append(str(game.core_types[i].get("id", "")))
+	# 按词条聚合：effect_id -> {name, cat, desc, per:{core_id: {n, core_name}}}
+	var by_effect: Dictionary = {}
+	for i in range(game.core_types.size()):
+		var cid := str(game.core_types[i].get("id", ""))
+		var cur: Dictionary = game.drop_effects.grants.get(cid, {})
+		if cur.is_empty():
+			continue
+		var core_name := str(game.core_types[i].get("name", cid))
+		for eid in cur.keys():
+			var e := DropEffects.find_effect(str(eid))
+			if e.is_empty():
+				continue
+			var key := str(eid)
+			var eff: Dictionary = by_effect.get(key, {})
+			if eff.is_empty():
+				eff = {
+					"name": str(e.get("name", key)),
+					"cat": str(e.get("category", "generic")),
+					"desc": str(e.get("desc", "")),
+					"per": {},
+				}
+				by_effect[key] = eff
+			eff["per"][cid] = {"n": int(cur[eid]), "core_name": core_name}
+	if by_effect.is_empty():
+		var empty := Label.new()
+		empty.text = "本局尚未获得任何词条（通关掉落或控制台授予后会显示在这里）。"
+		empty.add_theme_color_override("font_color", Color("9fb0cc"))
+		buff_content.add_child(empty)
+		return
+	for key in by_effect:
+		var eff: Dictionary = by_effect[key]
+		var per: Dictionary = eff["per"]
+		var cat_tag := "专属" if str(eff["cat"]) == "unique" else "通用"
+		var col := Color("d8b4ff") if cat_tag == "专属" else Color("8ae29a")
+		# “全体”：每个已解锁核心都持有该词条，且层数一致
+		var all_same := unlocked.size() > 0
+		var expect := -1
+		for cid in unlocked:
+			if not per.has(str(cid)):
+				all_same = false
+				break
+			var nn := int((per[str(cid)] as Dictionary)["n"])
+			if expect < 0:
+				expect = nn
+			elif nn != expect:
+				all_same = false
+		if all_same and expect > 0:
+			_add_buff_card("全体", col, str(eff["name"]), cat_tag, expect, str(eff["desc"]))
+			continue
+		for cid in per:
+			var pc: Dictionary = per[cid]
+			_add_buff_card(str(pc["core_name"]), col, str(eff["name"]), cat_tag, int(pc["n"]), str(eff["desc"]))
+
+## 词条卡片（样式贴近战后三选一卡片）；scope 为「全体」或某核心名
+func _add_buff_card(scope: String, col: Color, name: String, cat_tag: String, n: int, desc: String) -> void:
+	var card := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = col.darkened(0.82)
+	style.border_color = col
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(8)
+	card.add_theme_stylebox_override("panel", style)
+
+	var cm := MarginContainer.new()
+	cm.add_theme_constant_override("margin_left", 12)
+	cm.add_theme_constant_override("margin_top", 8)
+	cm.add_theme_constant_override("margin_right", 12)
+	cm.add_theme_constant_override("margin_bottom", 8)
+	card.add_child(cm)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	cm.add_child(box)
+
+	var ttl := Label.new()
+	ttl.text = name
+	ttl.add_theme_font_size_override("font_size", 16)
+	ttl.add_theme_color_override("font_color", col.lightened(0.25))
+	box.add_child(ttl)
+
+	var meta := Label.new()
+	var stack_txt := "" if n <= 1 else " ×%d" % n
+	meta.text = "%s ｜ 作用于：%s%s" % [cat_tag, scope, stack_txt]
+	meta.add_theme_font_size_override("font_size", 13)
+	meta.add_theme_color_override("font_color", Color("cfe0ff"))
+	box.add_child(meta)
+
+	var dsc := Label.new()
+	dsc.text = desc
+	dsc.add_theme_font_size_override("font_size", 13)
+	dsc.add_theme_color_override("font_color", Color("9fb0cc"))
+	dsc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(dsc)
+	card.tooltip_text = desc
+	buff_content.add_child(card)

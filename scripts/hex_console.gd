@@ -18,6 +18,8 @@ var core_spread_spins: Array = []      # 与 core_types 下标一一对应
 var turret_type_names: Array = []      # 类型名（basic/sniper/rapid/beam）
 var turret_interval_spins: Array = []  # 与 turret_type_names 对应
 var default_core_spreads: Array = []   # 每类核心的默认扩散间隔
+var core_duration_spins: Array = []    # 与 core_types 下标一一对应（存活时间）
+var default_core_durations: Array = [] # 每类核心的默认存活时间
 
 const TURRET_TYPE_LABELS := {
 	"basic": "基础",
@@ -85,6 +87,18 @@ func build_console() -> void:
 		var sb := add_spin_row(vbox, nm, 0.05, 10000.0, 0.05, val, false)
 		core_spread_spins.append(sb)
 
+	# —— 我方核心：每种核心的存活时间 ——
+	vbox.add_child(section_label("—— 我方核心 · 存活时间（秒） ——"))
+	core_duration_spins.clear()
+	default_core_durations.clear()
+	for i in range(game.core_types.size()):
+		var t: Dictionary = game.core_types[i]
+		var nm := str(t.get("name", "核心"))
+		var val := float(t.get("duration", 15.0))
+		default_core_durations.append(val)
+		var sb := add_spin_row(vbox, nm, 0.5, 300.0, 0.5, val, false)
+		core_duration_spins.append(sb)
+
 	# —— 敌方炮台：每种类型的攻击间隔（绝对秒数） ——
 	vbox.add_child(section_label("—— 敌方炮台 · 攻击间隔（秒/按类型） ——"))
 	turret_type_names.clear()
@@ -100,9 +114,9 @@ func build_console() -> void:
 	game.drop_effects.add_console_section(vbox)
 
 	var hint := Label.new()
-	hint.text = "调整的是“临时”数值：核心扩散间隔写回当前局，炮台间隔对同类型全场生效并延续到之后的关卡。\n应用后生效；恢复默认还原 cores.json 加载值；按 R 或 Esc 关闭。"
+	hint.text = "均为“临时”数值：扩散间隔与存活时间写回当前局（存活时间只影响之后部署的新核心），炮台间隔对同类型全场生效并延续到之后的关卡。\n应用后生效；恢复默认还原 cores.json 加载值；按 R 或 Esc 关闭。"
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.custom_minimum_size = Vector2(420, 0)
+	hint.custom_minimum_size = Vector2(440, 0)
 	hint.add_theme_color_override("font_color", Color("9fb0cc"))
 	vbox.add_child(hint)
 
@@ -161,6 +175,9 @@ func open() -> void:
 	for i in range(core_spread_spins.size()):
 		if i < game.core_types.size():
 			core_spread_spins[i].value = float(game.core_types[i].get("spread_interval", 0.9))
+	for i in range(core_duration_spins.size()):
+		if i < game.core_types.size():
+			core_duration_spins[i].value = float(game.core_types[i].get("duration", 15.0))
 	for k in range(turret_interval_spins.size()):
 		var type_name: String = turret_type_names[k]
 		turret_interval_spins[k].value = _turret_current_interval(type_name)
@@ -183,7 +200,13 @@ func apply() -> void:
 		var val := float(core_spread_spins[i].value)
 		game.core_types[i]["spread_interval"] = val
 	_rebuild_mode_intervals()
-	# 2) 每种炮台的攻击间隔（绝对秒数）
+	# 2) 每种核心的存活时间
+	for i in range(core_duration_spins.size()):
+		if i >= game.core_types.size():
+			continue
+		var val := float(core_duration_spins[i].value)
+		game.core_types[i]["duration"] = val
+	# 3) 每种炮台的攻击间隔（绝对秒数）
 	for k in range(turret_interval_spins.size()):
 		if k >= turret_type_names.size():
 			continue
@@ -204,6 +227,11 @@ func defaults() -> void:
 		game.core_types[i]["spread_interval"] = default_core_spreads[i]
 		core_spread_spins[i].value = default_core_spreads[i]
 	_rebuild_mode_intervals()
+	for i in range(default_core_durations.size()):
+		if i >= game.core_types.size():
+			continue
+		game.core_types[i]["duration"] = default_core_durations[i]
+		core_duration_spins[i].value = default_core_durations[i]
 	game.turret_interval_overrides.clear()
 	for k in range(turret_interval_spins.size()):
 		if k >= turret_type_names.size():

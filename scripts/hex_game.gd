@@ -117,6 +117,8 @@ var core_selector_panel: PanelContainer = null
 # 控制台
 var console_open := false
 var console_layer: CanvasLayer
+# 本局词条总览弹窗是否打开（打开时暂停游戏并屏蔽输入）
+var buff_overview_open := false
 
 var status_label: Label
 var start_button: Button
@@ -129,6 +131,11 @@ var reward_layer: CanvasLayer
 var reward_title: Label
 var reward_cards_box: HBoxContainer
 var reward_continue_button: Button
+# 专属词条的承载核心选择（选完 buff 掉落卡后弹出）
+var unique_layer: CanvasLayer
+var unique_title: Label
+var unique_box: VBoxContainer
+var _pending_unique_effect := ""
 
 # 暂停与倍速（UI 在右上角）
 const SPEED_LEVELS: Array[float] = [1.0, 2.0, 4.0]
@@ -200,9 +207,11 @@ func _ready() -> void:
 	hud.build_hud()
 	console.build_console()
 	hud.build_core_selector()
+	hud.build_buff_overview()
 	editor.build_editor_ui()
 	editor.build_file_dialog()
 	_build_reward_screen()
+	_build_unique_target_screen()
 	_build_game_controls()
 	_update_ui_scale()
 	deploy.reset()
@@ -218,6 +227,8 @@ func _process(delta: float) -> void:
 		return
 	if console_open:
 		return
+	if buff_overview_open:
+		return  # 词条总览打开时暂停游戏
 	if mode != Mode.PLAY:
 		return
 	if phase != Phase.RUNNING:
@@ -459,8 +470,111 @@ func _make_reward_card(opt: Dictionary) -> Control:
 
 func _on_card_input(ev: InputEvent, opt: Dictionary) -> void:
 	if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+		var kind := str(opt.get("kind", ""))
+		# 专属词条：先弹出“选择承载核心”，选择后才真正授予并进入下一关
+		if kind == "buff" and rewards.is_unique_effect(str(opt.get("id", ""))):
+			_open_unique_target(opt)
+			return
 		rewards.apply_option(opt)
 		_advance_after_reward()
+
+## 专属词条：弹出选择“作用于哪一颗核心”的界面（列出所有已解锁核心）
+func _open_unique_target(opt: Dictionary) -> void:
+	_pending_unique_effect = str(opt.get("id", ""))
+	if unique_layer == null:
+		return
+	if unique_title != null:
+		unique_title.text = "选择承载核心：获得「%s」" % str(opt.get("title", "词条"))
+	for ch in unique_box.get_children():
+		unique_box.remove_child(ch)
+		ch.queue_free()
+	var added := false
+	for i in range(core_types.size()):
+		if not rewards.is_type_unlocked(i):
+			continue
+		added = true
+		var t: Dictionary = core_types[i]
+		var col: Color = map_data.core_color(t)
+		var btn := Button.new()
+		btn.text = "【%s】%s" % [str(t.get("name", "核心")), str(t.get("id", ""))]
+		btn.custom_minimum_size = Vector2(240, 0)
+		btn.add_theme_color_override("font_color", col.lightened(0.15))
+		btn.pressed.connect(_on_unique_core_chosen.bind(i))
+		unique_box.add_child(btn)
+	if not added:
+		var lbl := Label.new()
+		lbl.text = "（暂无已解锁核心）"
+		lbl.add_theme_color_override("font_color", Color("9fb0cc"))
+		unique_box.add_child(lbl)
+	unique_layer.visible = true
+
+func _on_unique_core_chosen(type_idx: int) -> void:
+	if _pending_unique_effect != "":
+		rewards.grant_unique_buff(_pending_unique_effect, type_idx)
+	_pending_unique_effect = ""
+	if unique_layer != null:
+		unique_layer.visible = false
+	_hide_reward_screen()
+	_advance_after_reward()
+
+func _on_unique_cancel() -> void:
+	_pending_unique_effect = ""
+	if unique_layer != null:
+		unique_layer.visible = false
+
+## 构建“专属词条 → 选择承载核心”弹窗层
+func _build_unique_target_screen() -> void:
+	unique_layer = CanvasLayer.new()
+	unique_layer.layer = 26
+	unique_layer.visible = false
+	add_child(unique_layer)
+
+	var dim := ColorRect.new()
+	dim.color = Color(0.0, 0.0, 0.0, 0.66)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	unique_layer.add_child(dim)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	unique_layer.add_child(center)
+
+	var panel := PanelContainer.new()
+	center.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_top", 18)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_bottom", 18)
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	margin.add_child(vbox)
+
+	unique_title = Label.new()
+	unique_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	unique_title.add_theme_font_size_override("font_size", 22)
+	vbox.add_child(unique_title)
+
+	var note := Label.new()
+	note.text = "专属词条只会作用于你选择的这一颗核心（本局内）。"
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	note.add_theme_color_override("font_color", Color("9fb0cc"))
+	vbox.add_child(note)
+
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(420, 220)
+	vbox.add_child(scroll)
+	unique_box = VBoxContainer.new()
+	unique_box.add_theme_constant_override("separation", 6)
+	scroll.add_child(unique_box)
+
+	var cancel_btn := Button.new()
+	cancel_btn.text = "取消（返回掉落选择）"
+	cancel_btn.pressed.connect(_on_unique_cancel)
+	vbox.add_child(cancel_btn)
 
 func _hide_reward_screen() -> void:
 	if reward_layer != null:
@@ -539,6 +653,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return  # 奖励界面弹出时屏蔽游戏输入
 	if paused:
 		return  # 暂停时屏蔽游戏输入（右上角按钮仍可用）
+	if buff_overview_open:
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+			hud.close_buff_overview()
+		return  # 词条总览打开时屏蔽游戏输入
 	if tutorial_active:
 		return
 	if tutorial_gate == "deploy" and event is InputEventKey:

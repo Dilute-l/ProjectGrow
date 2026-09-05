@@ -10,6 +10,9 @@ extends RefCounted
 ##   - 首胜（本局第 1 次通关）：必定是新核心选择；
 ##   - 之后每场：75% 概率为增强 BUFF，25% 概率为新核心。
 ## buff 与新核心不会在同一次掉落里混出。
+## 词条作用规则：
+##   - 专属(unique)词条：选中后需再选择一颗「已解锁核心」来承载，只作用于该核心；
+##   - 通用(generic)词条：无需选择，直接作用于全体（当前已解锁的核心）。
 ##
 ## 【掉落类型接口】每个候选是一个 Dictionary：
 ##   { "kind": <String>, "id": <String>, "title": <String>, "sub": <String>,
@@ -157,7 +160,29 @@ func _grant_buff(effect_id: String) -> void:
 		if game.drop_effects.stacks(str(game.core_types[i].get("id", "")), effect_id) > before:
 			granted += 1
 	if granted > 0:
-		game.hud.set_status("已获得词条「%s」" % str(e.get("name", effect_id)))
+		game.hud.set_status("已获得词条「%s」（作用于全体）" % str(e.get("name", effect_id)))
+		game.hud.update_status()
+	else:
+		game.hud.set_status("该词条已达上限，未生效")
+
+## 该词条是否为「专属」类（专属词条需玩家再选择一颗核心来承载）
+func is_unique_effect(effect_id: String) -> bool:
+	var e := DropEffects.find_effect(effect_id)
+	return not e.is_empty() and str(e.get("category", "")) == "unique"
+
+## 专属词条：只作用于指定的一颗已解锁核心（type_idx），本次仅此一颗
+func grant_unique_buff(effect_id: String, type_idx: int) -> void:
+	if type_idx < 0 or type_idx >= game.core_types.size():
+		return
+	if not is_type_unlocked(type_idx):
+		return
+	var core_id := str(game.core_types[type_idx].get("id", ""))
+	var before = game.drop_effects.stacks(core_id, effect_id)
+	game.drop_effects.grant(type_idx, effect_id)
+	var e := DropEffects.find_effect(effect_id)
+	var core_name := str(game.core_types[type_idx].get("name", core_id))
+	if game.drop_effects.stacks(core_id, effect_id) > before:
+		game.hud.set_status("已获得词条「%s」（作用于：%s）" % [str(e.get("name", effect_id)), core_name])
 		game.hud.update_status()
 	else:
 		game.hud.set_status("该词条已达上限，未生效")
