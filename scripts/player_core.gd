@@ -140,6 +140,7 @@ func _core_color() -> Color:
 const TEX_CORE := preload("res://images/Direct_core.png")
 const TEX_CORE_CHARGE := preload("res://images/Charge_core.png")
 const TEX_CORE_SPEEDY := preload("res://images/Fast_core.png")
+const TEX_CORE_SPREAD := preload("res://images/Spread_core.png")
 
 ## 本核心对应的本体贴图（有美术的模式）；无美术的模式返回 null（用矢量圆盘）
 func _core_texture() -> Texture2D:
@@ -150,6 +151,8 @@ func _core_texture() -> Texture2D:
 			return TEX_CORE_CHARGE
 		"speedy":
 			return TEX_CORE_SPEEDY
+		"radial":
+			return TEX_CORE_SPREAD
 	return null
 ## 贴图内六边形本体的单边边长（像素）：由本体两条垂直边（x=1181/5305，宽 4124）反推 = 4124/√3 ≈ 2381（不含延伸）
 const HEX_ART_EDGE := 2381.0
