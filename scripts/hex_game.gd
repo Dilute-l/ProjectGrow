@@ -137,11 +137,16 @@ var core_buttons: Array[Button] = []
 var core_selector_layer: CanvasLayer
 var hud_layer: CanvasLayer
 
-# 关卡奖励界面（通关后弹出：3 选 1 掉落；继续按钮 = 跳过本次掉落）
+# 关卡奖励界面（通关后弹出；掉落队列逐项弹出：必定掉落 → 概率掉落(30%)）
+# 候选内容与领取逻辑在 hex_rewards.gd（支持 core 解锁 / buff 词条 / tile 地块）
 var reward_layer: CanvasLayer
 var reward_title: Label
+var reward_sub_label: Label
 var reward_cards_box: HBoxContainer
 var reward_continue_button: Button
+# 本次 WON 的掉落队列（由 rewards.build_drop_queue() 生成）与当前下标
+var _reward_queue: Array = []
+var _reward_queue_idx := 0
 # 专属词条的承载核心选择（选完 buff 掉落卡后弹出）
 var unique_layer: CanvasLayer
 var unique_title: Label
@@ -364,8 +369,8 @@ func core_selector_screen_rect() -> Rect2:
 	return Rect2(core_selector_panel.global_position * s + off, core_selector_panel.size * s).grow(14.0 * s)
 
 # ---------------------------------------------------------------------------
-# 关卡奖励界面（通关后弹出 3 选 1 掉落；点卡片领取，继续 = 跳过）
-# 候选内容与领取逻辑在 hex_rewards.gd（支持 core 解锁 / buff 词条等多种掉落类型）
+# 关卡奖励界面（通关后按“掉落队列”逐项弹出；点卡片领取，继续 = 跳过剩余）
+# 掉落队列由 hex_rewards.build_drop_queue() 生成：第 1 项必定掉落，第 2 项概率掉落(30%)
 # ---------------------------------------------------------------------------
 func _build_reward_screen() -> void:
 	reward_layer = CanvasLayer.new()
@@ -403,12 +408,11 @@ func _build_reward_screen() -> void:
 	reward_title.add_theme_font_size_override("font_size", 30)
 	vbox.add_child(reward_title)
 
-	var sub := Label.new()
-	sub.text = "选择你的奖励（3 选 1，点击即领取）"
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.add_theme_font_size_override("font_size", 16)
-	sub.add_theme_color_override("font_color", Color("9fb0cc"))
-	vbox.add_child(sub)
+	reward_sub_label = Label.new()
+	reward_sub_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	reward_sub_label.add_theme_font_size_override("font_size", 16)
+	reward_sub_label.add_theme_color_override("font_color", Color("9fb0cc"))
+	vbox.add_child(reward_sub_label)
 
 	reward_cards_box = HBoxContainer.new()
 	reward_cards_box.add_theme_constant_override("separation", 14)
@@ -416,21 +420,39 @@ func _build_reward_screen() -> void:
 	vbox.add_child(reward_cards_box)
 
 	reward_continue_button = Button.new()
-	reward_continue_button.text = "继续 ▸（跳过本次掉落）"
+	reward_continue_button.text = "继续 ▸（跳过剩余掉落）"
 	reward_continue_button.pressed.connect(_on_reward_continue)
 	vbox.add_child(reward_continue_button)
 
+## 通关后入口：构建掉落队列并展示第 1 项
 func _show_reward_screen() -> void:
-	if reward_title != null:
-		reward_title.text = "第 %d 关完成！" % (level_index + 1)
-	# 重建候选卡片
+	_reward_queue = rewards.build_drop_queue()
+	_reward_queue_idx = 0
+	_render_reward_item()
+
+## 渲染当前掉落项；队列为空则显示“无掉落”提示
+func _render_reward_item() -> void:
+	if reward_title == null:
+		return
 	for child in reward_cards_box.get_children():
 		reward_cards_box.remove_child(child)
 		child.queue_free()
-	var options: Array = rewards.build_options()
+	if _reward_queue_idx < 0 or _reward_queue_idx >= _reward_queue.size():
+		# 空队列（理论上所有候选都已被拿完）
+		reward_title.text = "第 %d 关完成！" % (level_index + 1)
+		reward_sub_label.text = "（没有可用掉落，继续进入下一关）"
+		reward_continue_button.text = "继续 ▸ 下一关"
+		if reward_layer != null:
+			reward_layer.visible = true
+		return
+	var item: Dictionary = _reward_queue[_reward_queue_idx]
+	var prefix := "必定掉落" if bool(item.get("guaranteed", true)) else "概率掉落"
+	reward_title.text = "第 %d 关完成 · %s：%s" % [level_index + 1, prefix, str(item.get("label", ""))]
+	reward_sub_label.text = "选择你的奖励（3 选 1，点击即领取）"
+	var options: Array = item.get("options", [])
 	if options.is_empty():
 		var hint := Label.new()
-		hint.text = "（所有核心与词条都已拥有，无掉落可选）"
+		hint.text = "（该类候选已无可选项）"
 		hint.add_theme_color_override("font_color", Color("9fb0cc"))
 		reward_cards_box.add_child(hint)
 	for opt in options:
@@ -498,11 +520,19 @@ func _make_reward_card(opt: Dictionary) -> Control:
 func _on_card_input(ev: InputEvent, opt: Dictionary) -> void:
 	if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 		var kind := str(opt.get("kind", ""))
-		# 专属词条：先弹出“选择承载核心”，选择后才真正授予并进入下一关
+		# 稀有词条（专属/unique）：先弹出“选择承载核心”，选择后才真正授予
 		if kind == "buff" and rewards.is_unique_effect(str(opt.get("id", ""))):
 			_open_unique_target(opt)
 			return
 		rewards.apply_option(opt)
+		_on_reward_picked()
+
+## 领取当前项后：还有下一掉落项则继续弹，否则进入下一关
+func _on_reward_picked() -> void:
+	_reward_queue_idx += 1
+	if _reward_queue_idx < _reward_queue.size():
+		_render_reward_item()
+	else:
 		_advance_after_reward()
 
 ## 专属词条：弹出选择“作用于哪一颗核心”的界面（列出所有已解锁核心）
@@ -541,8 +571,7 @@ func _on_unique_core_chosen(type_idx: int) -> void:
 	_pending_unique_effect = ""
 	if unique_layer != null:
 		unique_layer.visible = false
-	_hide_reward_screen()
-	_advance_after_reward()
+	_on_reward_picked()
 
 func _on_unique_cancel() -> void:
 	_pending_unique_effect = ""
@@ -613,6 +642,7 @@ func _advance_after_reward() -> void:
 	_load_level(level_index)
 	_hide_reward_screen()
 
+## 领取奖励后 / 点继续（跳过剩余掉落）：跳过所有尚未领取的掉落，直接进入下一关
 func _on_reward_continue() -> void:
 	_advance_after_reward()
 
