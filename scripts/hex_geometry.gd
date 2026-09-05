@@ -68,6 +68,24 @@ static func hex_progress_points(center: Vector2, radius: float, frac: float) -> 
 		walked += seg
 	return out
 
+## 把轴向向量 v 映射到 6 邻域方向中最接近的一个（用像素空间点积比方向）。
+## v 可以是任意轴向向量（如 (2,0)）；返回最接近的单位邻居方向；零向量返回零向量。
+func nearest_dir(v: Vector2i) -> Vector2i:
+	if v == Vector2i.ZERO:
+		return Vector2i.ZERO
+	var px := sqrt(3.0) * (float(v.x) + float(v.y) * 0.5)
+	var py := 1.5 * float(v.y)
+	var best := Vector2i(1, 0)
+	var best_dot := -1e30
+	for d: Vector2i in game.NEIGHBORS:
+		var dx := sqrt(3.0) * (float(d.x) + float(d.y) * 0.5)
+		var dy := 1.5 * float(d.y)
+		var dot := px * dx + py * dy
+		if dot > best_dot:
+			best_dot = dot
+			best = d
+	return best
+
 ## 某地块中心的屏幕坐标
 func hex_center(cell: Vector2i) -> Vector2:
 	return game.map_offset + axial_to_pixel(cell.x, cell.y, game.hex_size)

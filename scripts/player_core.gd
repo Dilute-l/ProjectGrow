@@ -136,6 +136,8 @@ const TEX_CORE := preload("res://images/Direct_core.png")
 ## 贴图内六边形的单边边长（像素）：贴图四周有透明边，需按此边长换算缩放，
 ## 使贴图内的六边形与游戏格子（边长 = hex_size）大小一致。
 const HEX_ART_EDGE := 2400.0
+## 定向核心贴图 Direct_core.png 的主导色（实测 alpha>128 平均），用于其计时器环
+const DIRECTIONAL_ART_COLOR := Color("#9F4353")
 ## 贴图微调偏移（以 hex_size 为单位，随窗口缩放；正 x 向右、正 y 向下）
 @export var core_tex_offset := Vector2.ZERO
 
@@ -155,8 +157,9 @@ func _draw() -> void:
 	# 持续时间环（六边形，画在贴图之上，位于格子边缘）
 	var frac := clampf(remaining / float(config.get("duration", 15.0)), 0.0, 1.0)
 	var timer_pts := HexGeometry.hex_progress_points(Vector2.ZERO, hex_size, frac)
+	var ring_col := DIRECTIONAL_ART_COLOR.lightened(0.4) if mode() == "directional" else col.lightened(0.5)
 	if timer_pts.size() >= 2:
-		draw_polyline(timer_pts, col.lightened(0.5), 3.0)
+		draw_polyline(timer_pts, ring_col, 3.0)
 
 ## 定向核心本体贴图：居中于本节点原点（= 格中心），画在矢量图形之上
 func _draw_core_texture() -> void:

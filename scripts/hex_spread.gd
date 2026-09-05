@@ -35,6 +35,11 @@ func spread_mode(mode_name: String, bm: CoreMode) -> void:
 		for n: Vector2i in bm.spread_candidates(cell, pl):
 			if game.geometry.in_bounds(n) and not game.polluted.has(n) and not game.walls.has(n) and not newly.has(n):
 				var np: Dictionary = pl.duplicate()
+				# 无方向模式（径向等）：补上触手方向 = 从来源核心指向该地块，映射到最近邻域
+				var ndir: Vector2i = np.get("dir", Vector2i.ZERO)
+				if ndir == Vector2i.ZERO:
+					var src: Vector2i = np.get("source", cell)
+					np["dir"] = game.geometry.nearest_dir(n - src)
 				# 每个蔓延生成的地块单独掷「地块坚韧」耐久
 				np["hp"] = game.drop_effects.roll_tile_hp(str(np.get("origin_id", "")))
 				newly[n] = np
@@ -72,7 +77,7 @@ func burst_from(origin: Vector2i, candidates: Array, mode_name: String, origin_i
 		if game.geometry.in_bounds(n) and not game.polluted.has(n) and not game.walls.has(n) and not newly.has(n):
 			newly[n] = {
 				"mode": mode_name,
-				"dir": Vector2i.ZERO,
+				"dir": game.geometry.nearest_dir(n - origin),
 				"source": origin,
 				"origin_id": origin_id,
 				"origin_spawn_time": origin_spawn_time,

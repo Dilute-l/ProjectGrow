@@ -17,6 +17,9 @@ const TEX_TURRET_SNIPER := preload("res://images/magica/enemy_sniper.png")
 const TURRET_ART_EDGE := 2886.75
 ## 贴图内六边形中心（像素坐标）；作为锚点对齐格子中心，补偿透明边不对称造成的偏移
 const TURRET_ART_CENTER := Vector2(3135.5, 3364.25)
+# 贴图主导色（实测 alpha>128 平均），用于充能环着色
+const TURRET_BASIC_COLOR := Color("#9EA07C")   # enemy_basic.png
+const TURRET_SNIPER_COLOR := Color("#956E97")  # enemy_sniper.png
 
 var game
 
@@ -148,8 +151,13 @@ func _turret_body_color(type_name: String) -> Color:
 		_:
 			return game.COL_TURRET   # 红色（基础）
 
-## 炮台类型 -> 外圈/充能环颜色（主体色提亮）
+## 炮台类型 -> 外圈/充能环颜色；有贴图的类型用贴图主导色提亮，其余用矢量主体色提亮
 func _turret_ring_color(type_name: String) -> Color:
+	match type_name:
+		"basic":
+			return TURRET_BASIC_COLOR.lightened(0.4)
+		"sniper":
+			return TURRET_SNIPER_COLOR.lightened(0.4)
 	return _turret_body_color(type_name).lightened(0.55)
 
 ## 炮台类型 -> 本体贴图；无贴图的类型（rapid/beam）返回 null
