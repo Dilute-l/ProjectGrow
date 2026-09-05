@@ -18,6 +18,10 @@ func display_name() -> String:
 func spread_candidates(_cell: Vector2i, _payload: Dictionary) -> Array[Vector2i]:
 	return []
 
+## 蓄力核心可无视「最外圈」限制，部署在任意位置
+func deploy_anywhere() -> bool:
+	return true
+
 ## 到期爆发：周围三格内（距离 1~3）所有地块
 func burst_candidates(cell: Vector2i) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
