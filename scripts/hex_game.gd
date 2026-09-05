@@ -313,6 +313,7 @@ func _process(delta: float) -> void:
 		if core_spread_timers[cell] >= iv:
 			core_spread_timers[cell] = 0.0
 			spread.spread_core(int(n.uid), m, bm)
+			$SpreadSE.play()
 	# 5) 炮台摧毁 / 胜利判定
 	spread.check_turret_destruction()
 	if phase == Phase.WON and reward_layer != null and not reward_layer.visible:
