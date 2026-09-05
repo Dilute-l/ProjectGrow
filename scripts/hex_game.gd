@@ -15,6 +15,7 @@ extends Node2D
 ##   - hex_editor.gd    地图编辑器
 ##   - hex_hud.gd       HUD / 核心选择 / 状态文案
 ##   - hex_console.gd   控制台
+##   - hex_level_select.gd 随机关卡：读每关 difficulty，按已通关数随机指定下一关
 ##
 ## 地图从 level1.json 读取（半径、敌方炮台位置、墙）；核心类型从 cores.json 读取。
 ## 两种模式（Tab 或左上角按钮切换）：游玩模式 / 地图编辑模式。
@@ -22,7 +23,7 @@ extends Node2D
 # ---------------------------------------------------------------------------
 # 路径与默认值
 # ---------------------------------------------------------------------------
-# 关卡列表（按顺序）；level_index 指向当前关卡
+# 关卡列表（按顺序，供编辑器/随机选关使用）；level_index 指向当前关卡
 const LEVEL_PATHS: Array[String] = [
 	"res://maps/level1.json",
 	"res://maps/level2.json",
@@ -31,6 +32,8 @@ const LEVEL_PATHS: Array[String] = [
 	"res://maps/test_turrets.json",
 ]
 var level_index := 0
+# 本局已通关数（随机关卡选关的“完成总关卡数”；每通关一关 +1，新一局清零）
+var cleared_levels := 0
 const CORES_PATH := "res://maps/cores.json"   # 核心数据文件
 
 const HEX_SIZE_DEFAULT := 26.0              # 六边形中心到顶点的距离（像素，默认）
@@ -194,6 +197,7 @@ var hud: HexHud
 var console: HexConsole
 var drop_effects: DropEffects
 var rewards: HexRewards
+var level_select: HexLevelSelect
 
 func _create_modules() -> void:
 	map_data = HexMap.new(self)
@@ -208,6 +212,7 @@ func _create_modules() -> void:
 	console = HexConsole.new(self)
 	drop_effects = DropEffects.new(self)
 	rewards = HexRewards.new(self)
+	level_select = HexLevelSelect.new(self)
 
 # ---------------------------------------------------------------------------
 # 生命周期
@@ -219,6 +224,7 @@ func _ready() -> void:
 	map_data.register_core_modes()
 	map_data.load_special_tiles()
 	rewards.reset_run()   # 新一局：只解锁默认核心（定向）
+	cleared_levels = 0    # 新一局：已通关数清零（随机关卡选关依据）
 	selected_core = clampi(selected_core, -1, core_types.size() - 1)
 	geometry.fit_hex_size()
 	geometry.recenter()
@@ -440,7 +446,7 @@ func _render_reward_item() -> void:
 		child.queue_free()
 	if _reward_queue_idx < 0 or _reward_queue_idx >= _reward_queue.size():
 		# 空队列（理论上所有候选都已被拿完）
-		reward_title.text = "第 %d 关完成！" % (level_index + 1)
+		reward_title.text = "第 %d 关完成！" % (cleared_levels + 1)
 		reward_sub_label.text = "（没有可用掉落，继续进入下一关）"
 		reward_continue_button.text = "继续 ▸ 下一关"
 		if reward_layer != null:
@@ -448,7 +454,7 @@ func _render_reward_item() -> void:
 		return
 	var item: Dictionary = _reward_queue[_reward_queue_idx]
 	var prefix := "必定掉落" if bool(item.get("guaranteed", true)) else "概率掉落"
-	reward_title.text = "第 %d 关完成 · %s：%s" % [level_index + 1, prefix, str(item.get("label", ""))]
+	reward_title.text = "第 %d 关完成 · %s：%s" % [cleared_levels + 1, prefix, str(item.get("label", ""))]
 	reward_sub_label.text = "选择你的奖励（3 选 1，点击即领取）"
 	var options: Array = item.get("options", [])
 	if options.is_empty():
@@ -637,10 +643,18 @@ func _hide_reward_screen() -> void:
 	if reward_layer != null:
 		reward_layer.visible = false
 
-## 领取奖励后 / 点继续（跳过）：进入下一关；最后一关之后回到第一关（循环）
+## 领取奖励后 / 点继续（跳过）：按已完成关卡数，在符合难度的关卡里随机选下一关。
+## 原本的顺序推进（level_index+1 循环）由 hex_level_select 模块取代。
 func _advance_after_reward() -> void:
-	level_index = (level_index + 1) % LEVEL_PATHS.size()
-	_load_level(level_index)
+	cleared_levels += 1
+	# 排除刚打完的这关，避免立刻重打同关
+	var exclude := str(LEVEL_PATHS[level_index])
+	var next_path := level_select.pick_next_level(cleared_levels, exclude)
+	var idx := level_select.index_of_path(next_path)
+	if idx < 0:
+		# 兜底（理论上不会发生：easy 关恒可候选）：退回顺序推进
+		idx = (level_index + 1) % LEVEL_PATHS.size()
+	_load_level(idx)
 	_hide_reward_screen()
 
 ## 领取奖励后 / 点继续（跳过剩余掉落）：跳过所有尚未领取的掉落，直接进入下一关
