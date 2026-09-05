@@ -126,6 +126,9 @@ func build_core_selector() -> void:
 
 	# 先添加子节点再设置锚点，确保按实际内容尺寸定位到右下角
 	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
+	# 内容变多（解锁更多核心）时向左/向上生长，右下角固定不动，避免面板随种类增加而偏移
+	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 
 ## 重建核心选择按钮：仅列出已解锁核心，每个按钮用 meta("core_type") 记录其 core_types 索引
 func _populate_core_buttons(parent: Control) -> void:
