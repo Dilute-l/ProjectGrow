@@ -80,7 +80,9 @@ func draw() -> void:
 			game.draw_colored_polygon(PackedVector2Array([tc + dir, tc + perp, tc - perp]), body_col)
 			if game.phase == game.Phase.RUNNING and game.mode == game.Mode.PLAY and t != null:
 				var afrac := t.charge_fraction()
-				game.draw_arc(tc, game.hex_size * 0.66, -PI * 0.5, -PI * 0.5 + TAU * afrac, 32, ring_col, 2.5)
+				var charge_pts := HexGeometry.hex_progress_points(tc, game.hex_size, afrac)
+				if charge_pts.size() >= 2:
+					game.draw_polyline(charge_pts, ring_col, 2.5)
 		else:
 			game.draw_circle(tc, game.hex_size * 0.52, game.COL_TURRET_DEAD)
 			game.draw_line(tc + Vector2(-1, -1) * game.hex_size * 0.3, tc + Vector2(1, 1) * game.hex_size * 0.3, ring_col, 3.0)

@@ -37,8 +37,8 @@ extends Node2D
 const DEPLOY_COST_START := 10
 ## 玩家部署费用上限（点）：可用点数不得超过该值
 const DEPLOY_COST_MAX := 10
-## 提示：每种模式部署该核心的消耗定义在各自 CoreMode 子类文件的 DEPLOY_COST 常量
-## （radial_core_mode.gd / directional_core_mode.gd），本文件只存玩家侧初始值与上限。
+## 提示：每种核心的部署消耗定义在 maps/cores.json 的 cost 字段，
+## 本文件只存玩家侧初始值与上限。
 
 # ---------------------------------------------------------------------------
 # 状态
@@ -144,17 +144,19 @@ func _draw() -> void:
 	# 实心圆盘 + 外圈描边
 	draw_circle(Vector2.ZERO, hex_size * 0.40, col)
 	draw_arc(Vector2.ZERO, hex_size * 0.40, 0.0, TAU, 24, col.lightened(0.5), 2.0)
-	# 持续时间环
-	var frac := clampf(remaining / float(config.get("duration", 15.0)), 0.0, 1.0)
-	draw_arc(Vector2.ZERO, hex_size * 0.52, -PI * 0.5, -PI * 0.5 + TAU * frac, 24, col.lightened(0.5), 3.0)
 	# 定向模式：方向箭头（指向相邻地块中心）
 	if mode() == "directional":
 		var dirv: Vector2i = direction
 		var dirpx: Vector2 = HexGeometry.axial_to_pixel(dirv.x, dirv.y, hex_size).normalized()
 		draw_line(Vector2.ZERO, dirpx * hex_size * 0.62, col.lightened(0.25), 3.0)
 		draw_circle(dirpx * hex_size * 0.62, 3.0, col.lightened(0.25))
-		# 定向核心本体贴图（画在最上面）
+		# 定向核心本体贴图
 		_draw_core_texture()
+	# 持续时间环（六边形，画在贴图之上，位于格子边缘）
+	var frac := clampf(remaining / float(config.get("duration", 15.0)), 0.0, 1.0)
+	var timer_pts := HexGeometry.hex_progress_points(Vector2.ZERO, hex_size, frac)
+	if timer_pts.size() >= 2:
+		draw_polyline(timer_pts, col.lightened(0.5), 3.0)
 
 ## 定向核心本体贴图：居中于本节点原点（= 格中心），画在矢量图形之上
 func _draw_core_texture() -> void:

@@ -6,6 +6,7 @@
 	  "mode": "radial",
 	  "duration": 30,
 	  "spread_interval": 5,
+	  "cost": 2,
 	  "color": "#3fc1ff"
 	},
 	{
@@ -14,15 +15,17 @@
 	  "mode": "directional",
 	  "duration": 60,
 	  "spread_interval": 3,
+	  "cost": 1,
 	  "color": "#7dff5a",
-	"unlocked_by_default": true
+	  "unlocked_by_default": true
 	},
 	{
 	  "id": "charge",
 	  "name": "蓄力核心",
 	  "mode": "charge",
-	  "duration": 10.0,
+	  "duration": 5,
 	  "spread_interval": 9999.0,
+	  "cost": 3,
 	  "color": "#ffaa00"
 	},
 	{
@@ -31,6 +34,7 @@
 	  "mode": "speedy",
 	  "duration": 15,
 	  "spread_interval": 1,
+	  "cost": 1,
 	  "color": "#FF6969"
 	}
   ]

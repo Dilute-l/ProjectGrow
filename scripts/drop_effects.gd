@@ -142,11 +142,10 @@ func core_ids_for_mode(mode_name: String) -> Array:
 # ---------------------------------------------------------------------------
 # 部署费用
 # ---------------------------------------------------------------------------
-## 部署该触手（type_idx）的实际费用：基础费用 + 贵胄光环自身 +5，其它在场光环 -2
+## 部署该触手（type_idx）的实际费用：基础费用（来自 cores.json 的 cost）+ 贵胄光环自身 +5，其它在场光环 -2
 func deploy_cost(type_idx: int) -> int:
 	var core_id := core_id_of_type(type_idx)
-	var mode_name := str(game.core_types[type_idx].get("mode", ""))
-	var cost: int = game.map_data.mode_deploy_cost(mode_name)
+	var cost: int = int(game.core_types[type_idx].get("cost", 1))
 	if has(core_id, "cost_swap_aura"):
 		cost += 5
 	cost -= 2 * aura_count_excluding(core_id)

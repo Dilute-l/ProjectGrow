@@ -4,7 +4,7 @@ extends RefCounted
 ## 数据加载与地图序列化 —— 从 scripts/hex_game.gd 拆分出来的模块。
 ##
 ## 职责：读取/解析 level1.json（地图：半径、墙、炮台）与 cores.json（核心类型），
-## 地图的导出/导入，以及核心行为模式的注册与费用查询。
+## 地图的导出/导入，以及核心行为模式的注册。
 ## 内存状态（map_radius / walls / turret_positions / core_types / mode_intervals）
 ## 仍由主脚本持有，本模块只负责读写这些字段。
 
@@ -143,11 +143,12 @@ func load_cores() -> void:
 								"mode": str(entry.get("mode", "radial")),
 								"duration": float(entry.get("duration", 15.0)),
 								"spread_interval": float(entry.get("spread_interval", 0.9)),
+								"cost": int(entry.get("cost", 1)),
 								"color": str(entry.get("color", "#3fc1ff")),
 								"unlocked_by_default": bool(entry.get("unlocked_by_default", false)),
 							})
 	if game.core_types.is_empty():
-		game.core_types.append({"id": "spread", "name": "扩散核心", "mode": "radial", "duration": 15.0, "spread_interval": 0.9, "color": "#3fc1ff"})
+		game.core_types.append({"id": "spread", "name": "扩散核心", "mode": "radial", "duration": 15.0, "spread_interval": 0.9, "cost": 2, "color": "#3fc1ff"})
 	game.mode_intervals.clear()
 	for t in game.core_types:
 		game.mode_intervals[str(t["mode"])] = float(t["spread_interval"])
@@ -172,15 +173,6 @@ func behavior_for_mode(mode_name: String) -> CoreMode:
 		push_warning("未注册的核心模式「%s」，按径向处理" % mode_name)
 		b = CoreMode.for_mode("radial")
 	return b
-
-## 部署该模式一颗核心的费用：读取对应 CoreMode 子类里的 DEPLOY_COST 常量
-func mode_deploy_cost(mode_name: String) -> int:
-	var bm := behavior_for_mode(mode_name)
-	var cm: Dictionary = bm.get_script().get_script_constant_map()
-	if cm.has("DEPLOY_COST"):
-		return int(cm["DEPLOY_COST"])
-	push_warning("模式「%s」未定义 DEPLOY_COST，按 1 计" % mode_name)
-	return 1
 
 ## 新一局默认解锁的核心 id：取 cores.json 里 unlocked_by_default=true 的条目；
 ## 若一条都没有，回退为「定向模式的核心」（再退为首个核心），避免开不了局。

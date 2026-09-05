@@ -41,6 +41,33 @@ func fit_hex_size() -> void:
 static func axial_to_pixel(q: float, r: float, size: float) -> Vector2:
 	return Vector2(size * sqrt(3.0) * (q + r * 0.5), size * 1.5 * r)
 
+## 六边形进度环：返回沿正六边形（尖顶朝上）周长按 frac 比例走出的折线点。
+## 从顶部顶点开始顺时针绕行；正六边形边长 = radius（circumradius）。
+## 用于把圆形计时环（核心剩余时间 / 炮台充能）改画成六边形，贴在格子边缘。
+static func hex_progress_points(center: Vector2, radius: float, frac: float) -> PackedVector2Array:
+	frac = clampf(frac, 0.0, 1.0)
+	var out := PackedVector2Array()
+	if frac <= 0.0:
+		return out
+	var verts: Array[Vector2] = []
+	for i in 6:
+		var a := deg_to_rad(-90.0 + 60.0 * i)  # 顶部顶点起，顺时针
+		verts.append(center + Vector2(cos(a), sin(a)) * radius)
+	var target := frac * 6.0 * radius  # 总周长 = 6 * 边长 = 6 * radius
+	var walked := 0.0
+	out.append(verts[0])
+	for i in 6:
+		var a: Vector2 = verts[i]
+		var b: Vector2 = verts[(i + 1) % 6]
+		var seg := a.distance_to(b)
+		if walked + seg >= target:
+			var t := clampf((target - walked) / seg, 0.0, 1.0)
+			out.append(a.lerp(b, t))
+			break
+		out.append(b)
+		walked += seg
+	return out
+
 ## 某地块中心的屏幕坐标
 func hex_center(cell: Vector2i) -> Vector2:
 	return game.map_offset + axial_to_pixel(cell.x, cell.y, game.hex_size)
