@@ -8,6 +8,18 @@ extends RefCounted
 
 var game
 
+# 炮台种类显示名（与 EnemyTurret.TURRET_TYPES 的 key 对应）
+const TURRET_TYPE_LABELS := {
+	"basic": "基础炮台",
+	"sniper": "狙击炮台",
+	"rapid": "速射炮台",
+	"beam": "光束炮台",
+}
+
+# 炮台种类下拉框与其 key 列表（构建编辑器 UI 时填充）
+var turret_type_option: OptionButton
+var turret_type_keys: Array = []
+
 func _init(g) -> void:
 	game = g
 
@@ -41,15 +53,18 @@ func place(cell: Vector2i) -> void:
 	if game.editor_brush == 0:  # 墙
 		game.walls[cell] = true
 		game.turret_positions.erase(cell)  # 墙与炮台不重叠
+		game.turret_types.erase(cell)
 	else:  # 炮台
 		game.walls.erase(cell)
 		if not game.turret_positions.has(cell):
 			game.turret_positions.append(cell)
+		game.turret_types[cell] = game.editor_turret_type  # 记录所选的炮台种类（重复点击即改种类）
 	game.queue_redraw()
 
 func erase(cell: Vector2i) -> void:
 	game.walls.erase(cell)
 	game.turret_positions.erase(cell)
+	game.turret_types.erase(cell)
 	game.queue_redraw()
 
 func select_brush(i: int) -> void:
@@ -58,6 +73,15 @@ func select_brush(i: int) -> void:
 		game.wall_btn.button_pressed = (i == 0)
 	if game.turret_btn:
 		game.turret_btn.button_pressed = (i == 1)
+	if turret_type_option:
+		turret_type_option.disabled = (i != 1)  # 只有炮台笔刷才需要选种类
+
+func _on_turret_type_selected(idx: int) -> void:
+	if idx >= 0 and idx < turret_type_keys.size():
+		game.editor_turret_type = str(turret_type_keys[idx])
+
+func _turret_type_label(key: String) -> String:
+	return TURRET_TYPE_LABELS.get(key, key)
 
 func change_radius(delta: int) -> void:
 	game.map_radius = clampi(game.map_radius + delta, 1, 10)
@@ -126,6 +150,15 @@ func build_editor_ui() -> void:
 	game.turret_btn.button_group = group
 	game.turret_btn.pressed.connect(select_brush.bind(1))
 	hbox.add_child(game.turret_btn)
+
+	# 炮台种类选择（仅炮台笔刷可用）
+	turret_type_option = OptionButton.new()
+	turret_type_keys = EnemyTurret.TURRET_TYPES.keys()
+	for k in turret_type_keys:
+		turret_type_option.add_item(_turret_type_label(str(k)))
+	turret_type_option.disabled = true  # 默认是墙笔刷
+	turret_type_option.item_selected.connect(_on_turret_type_selected)
+	hbox.add_child(turret_type_option)
 
 	hbox.add_child(VSeparator.new())
 
