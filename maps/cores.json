@@ -14,7 +14,8 @@
 	  "mode": "directional",
 	  "duration": 20.0,
 	  "spread_interval": 0.6,
-	  "color": "#7dff5a"
+	  "color": "#7dff5a",
+	"unlocked_by_default": true
 	},
 	{
 	  "id": "charge",
@@ -23,6 +24,14 @@
 	  "duration": 10.0,
 	  "spread_interval": 9999.0,
 	  "color": "#ffaa00"
+	},
+	{
+	  "id": "speedy",
+	  "name": "高速核心",
+	  "mode": "speedy",
+	  "duration": 8.0,
+	  "spread_interval": 0.3,
+	  "color": "#FF6969"
 	}
   ]
 }

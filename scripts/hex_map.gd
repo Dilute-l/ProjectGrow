@@ -144,6 +144,7 @@ func load_cores() -> void:
 								"duration": float(entry.get("duration", 15.0)),
 								"spread_interval": float(entry.get("spread_interval", 0.9)),
 								"color": str(entry.get("color", "#3fc1ff")),
+								"unlocked_by_default": bool(entry.get("unlocked_by_default", false)),
 							})
 	if game.core_types.is_empty():
 		game.core_types.append({"id": "spread", "name": "扩散核心", "mode": "radial", "duration": 15.0, "spread_interval": 0.9, "color": "#3fc1ff"})
@@ -162,6 +163,7 @@ func register_core_modes() -> void:
 	CoreMode.register("radial", RadialCoreMode.new())
 	CoreMode.register("directional", DirectionalCoreMode.new())
 	CoreMode.register("charge", ChargeCoreMode.new())
+	CoreMode.register("speedy", SpeedyCoreMode.new())
 
 ## 取模式行为；未注册的模式按径向兜底并告警
 func behavior_for_mode(mode_name: String) -> CoreMode:
@@ -179,3 +181,19 @@ func mode_deploy_cost(mode_name: String) -> int:
 		return int(cm["DEPLOY_COST"])
 	push_warning("模式「%s」未定义 DEPLOY_COST，按 1 计" % mode_name)
 	return 1
+
+## 新一局默认解锁的核心 id：取 cores.json 里 unlocked_by_default=true 的条目；
+## 若一条都没有，回退为「定向模式的核心」（再退为首个核心），避免开不了局。
+func default_unlocked_ids() -> Array:
+	var out: Array = []
+	for t in game.core_types:
+		if bool(t.get("unlocked_by_default", false)):
+			out.append(str(t.get("id", "")))
+	if not out.is_empty():
+		return out
+	for t in game.core_types:
+		if str(t.get("mode", "")) == "directional":
+			return [str(t.get("id", "directional"))]
+	if not game.core_types.is_empty():
+		return [str(game.core_types[0].get("id", "core"))]
+	return []

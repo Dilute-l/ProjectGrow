@@ -60,7 +60,10 @@ var turret_positions: Array[Vector2i] = []    # 所有敌方炮台位置
 var turret_types: Dictionary = {}             # 炮台位置 -> 类型名（basic/sniper/rapid）
 
 # 核心数据（从文件读取）
-var core_types: Array = []     # 每个元素为 Dictionary：{id,name,mode,duration,spread_interval,color}
+var core_types: Array = []     # 每个元素为 Dictionary：{id,name,mode,duration,spread_interval,color,unlocked_by_default}
+# 解锁核心（局内）：新一局只解锁 cores.json 中 unlocked_by_default=true 的核心（默认「定向核心」），
+# 其余核心作为通关掉落供玩家挑选（见 hex_rewards.gd）
+var unlocked_core_ids: Array = []
 
 const COL_BG           := Color("0d1321")
 const COL_TILE         := Color("243045")
@@ -120,9 +123,10 @@ var core_buttons: Array[Button] = []
 var core_selector_layer: CanvasLayer
 var hud_layer: CanvasLayer
 
-# 关卡奖励界面（通关后弹出：占位符 + 继续按钮）
+# 关卡奖励界面（通关后弹出：3 选 1 掉落；继续按钮 = 跳过本次掉落）
 var reward_layer: CanvasLayer
 var reward_title: Label
+var reward_cards_box: HBoxContainer
 var reward_continue_button: Button
 
 # 暂停与倍速（UI 在右上角）
@@ -164,6 +168,7 @@ var turrets: HexTurrets
 var hud: HexHud
 var console: HexConsole
 var drop_effects: DropEffects
+var rewards: HexRewards
 
 func _create_modules() -> void:
 	map_data = HexMap.new(self)
@@ -177,6 +182,7 @@ func _create_modules() -> void:
 	hud = HexHud.new(self)
 	console = HexConsole.new(self)
 	drop_effects = DropEffects.new(self)
+	rewards = HexRewards.new(self)
 
 # ---------------------------------------------------------------------------
 # 生命周期
@@ -186,6 +192,7 @@ func _ready() -> void:
 	map_data.load_map()
 	map_data.load_cores()
 	map_data.register_core_modes()
+	rewards.reset_run()   # 新一局：只解锁默认核心（定向）
 	selected_core = clampi(selected_core, -1, core_types.size() - 1)
 	geometry.fit_hex_size()
 	geometry.recenter()
@@ -318,7 +325,8 @@ func core_selector_screen_rect() -> Rect2:
 	return Rect2(core_selector_panel.global_position * s + off, core_selector_panel.size * s).grow(14.0 * s)
 
 # ---------------------------------------------------------------------------
-# 关卡奖励界面（通关后弹出；当前为占位符内容）
+# 关卡奖励界面（通关后弹出 3 选 1 掉落；点卡片领取，继续 = 跳过）
+# 候选内容与领取逻辑在 hex_rewards.gd（支持 core 解锁 / buff 词条等多种掉落类型）
 # ---------------------------------------------------------------------------
 func _build_reward_screen() -> void:
 	reward_layer = CanvasLayer.new()
@@ -348,7 +356,7 @@ func _build_reward_screen() -> void:
 	panel.add_child(margin)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
+	vbox.add_theme_constant_override("separation", 14)
 	margin.add_child(vbox)
 
 	reward_title = Label.new()
@@ -357,54 +365,114 @@ func _build_reward_screen() -> void:
 	vbox.add_child(reward_title)
 
 	var sub := Label.new()
-	sub.text = "选择你的奖励（占位符）"
+	sub.text = "选择你的奖励（3 选 1，点击即领取）"
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.add_theme_font_size_override("font_size", 16)
 	sub.add_theme_color_override("font_color", Color("9fb0cc"))
 	vbox.add_child(sub)
 
-	var cards := HBoxContainer.new()
-	cards.add_theme_constant_override("separation", 14)
-	cards.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_child(cards)
-	for i in 3:
-		var card := PanelContainer.new()
-		card.custom_minimum_size = Vector2(150, 170)
-		cards.add_child(card)
-		var cm := MarginContainer.new()
-		cm.add_theme_constant_override("margin_left", 10)
-		cm.add_theme_constant_override("margin_top", 10)
-		cm.add_theme_constant_override("margin_right", 10)
-		cm.add_theme_constant_override("margin_bottom", 10)
-		card.add_child(cm)
-		var lbl := Label.new()
-		lbl.text = "奖励占位符 %d" % (i + 1)
-		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		lbl.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		cm.add_child(lbl)
+	reward_cards_box = HBoxContainer.new()
+	reward_cards_box.add_theme_constant_override("separation", 14)
+	reward_cards_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(reward_cards_box)
 
 	reward_continue_button = Button.new()
-	reward_continue_button.text = "继续 ▸"
+	reward_continue_button.text = "继续 ▸（跳过本次掉落）"
 	reward_continue_button.pressed.connect(_on_reward_continue)
 	vbox.add_child(reward_continue_button)
 
 func _show_reward_screen() -> void:
 	if reward_title != null:
 		reward_title.text = "第 %d 关完成！" % (level_index + 1)
+	# 重建候选卡片
+	for child in reward_cards_box.get_children():
+		reward_cards_box.remove_child(child)
+		child.queue_free()
+	var options: Array = rewards.build_options()
+	if options.is_empty():
+		var hint := Label.new()
+		hint.text = "（所有核心与词条都已拥有，无掉落可选）"
+		hint.add_theme_color_override("font_color", Color("9fb0cc"))
+		reward_cards_box.add_child(hint)
+	for opt in options:
+		reward_cards_box.add_child(_make_reward_card(opt))
 	if reward_layer != null:
 		reward_layer.visible = true
+
+func _make_reward_card(opt: Dictionary) -> Control:
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(200, 216)
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.tooltip_text = str(opt.get("desc", ""))
+	card.gui_input.connect(_on_card_input.bind(opt))
+	var col: Color = opt.get("color", Color.WHITE)
+	var style := StyleBoxFlat.new()
+	style.bg_color = col.darkened(0.78)
+	style.border_color = col
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(8)
+	card.add_theme_stylebox_override("panel", style)
+
+	var cm := MarginContainer.new()
+	cm.add_theme_constant_override("margin_left", 10)
+	cm.add_theme_constant_override("margin_top", 10)
+	cm.add_theme_constant_override("margin_right", 10)
+	cm.add_theme_constant_override("margin_bottom", 10)
+	card.add_child(cm)
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	cm.add_child(box)
+
+	var title := Label.new()
+	title.text = str(opt.get("title", "?"))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", col.lightened(0.25))
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(title)
+
+	var sub := Label.new()
+	sub.text = str(opt.get("sub", ""))
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.add_theme_font_size_override("font_size", 13)
+	sub.add_theme_color_override("font_color", Color("cfe0ff"))
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(sub)
+
+	var desc := Label.new()
+	desc.text = str(opt.get("desc", ""))
+	desc.add_theme_font_size_override("font_size", 13)
+	desc.add_theme_color_override("font_color", Color("9fb0cc"))
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.custom_minimum_size = Vector2(0, 56)
+	box.add_child(desc)
+
+	var tag := Label.new()
+	tag.text = "点击领取"
+	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tag.add_theme_font_size_override("font_size", 12)
+	tag.add_theme_color_override("font_color", col)
+	box.add_child(tag)
+	return card
+
+func _on_card_input(ev: InputEvent, opt: Dictionary) -> void:
+	if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+		rewards.apply_option(opt)
+		_advance_after_reward()
 
 func _hide_reward_screen() -> void:
 	if reward_layer != null:
 		reward_layer.visible = false
 
-func _on_reward_continue() -> void:
-	# 进入下一关；最后一关之后回到第一关（循环）
+## 领取奖励后 / 点继续（跳过）：进入下一关；最后一关之后回到第一关（循环）
+func _advance_after_reward() -> void:
 	level_index = (level_index + 1) % LEVEL_PATHS.size()
 	_load_level(level_index)
 	_hide_reward_screen()
+
+func _on_reward_continue() -> void:
+	_advance_after_reward()
 
 ## 加载指定关卡并复位游戏到部署阶段
 func _load_level(idx: int) -> void:

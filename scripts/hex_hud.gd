@@ -105,8 +105,10 @@ func build_core_selector() -> void:
 	var group := ButtonGroup.new()
 	for i in range(game.core_types.size()):
 		var t: Dictionary = game.core_types[i]
+		var locked: bool = not game.unlocked_core_ids.has(str(t.get("id", "")))
 		var btn := Button.new()
-		btn.text = t["name"]
+		btn.text = ("🔒 " if locked else "") + str(t.get("name", "核心"))
+		btn.disabled = locked
 		btn.toggle_mode = true
 		btn.button_group = group
 		btn.custom_minimum_size = Vector2(140, 0)
@@ -122,6 +124,9 @@ func build_core_selector() -> void:
 func select_core(i: int) -> void:
 	if i < 0 or i >= game.core_types.size():
 		return
+	if not _type_unlocked(i):
+		set_status("「%s」尚未解锁（通关后的掉落中可选）" % str(game.core_types[i].get("name", "核心")))
+		return
 	game.selected_core = i
 	game.awaiting_direction = false
 	for j in range(game.core_buttons.size()):
@@ -135,6 +140,25 @@ func select_core(i: int) -> void:
 func set_status(text: String) -> void:
 	if game.status_label:
 		game.status_label.text = text
+
+## type_idx 对应的核心是否已解锁（委托给 rewards 模块）
+func _type_unlocked(i: int) -> bool:
+	if game.rewards != null:
+		return game.rewards.is_type_unlocked(i)
+	return game.unlocked_core_ids.has(str(game.core_types[i].get("id", "")))
+
+## 解锁状态变化后刷新选择栏（按钮禁用 / 🔒 前缀；若当前选中的核心被锁则复位）
+func refresh_core_unlocks() -> void:
+	for i in range(game.core_buttons.size()):
+		if i >= game.core_types.size():
+			continue
+		var locked: bool = not game.unlocked_core_ids.has(str(game.core_types[i].get("id", "")))
+		game.core_buttons[i].disabled = locked
+		game.core_buttons[i].text = ("🔒 " if locked else "") + str(game.core_types[i].get("name", "核心"))
+	if game.selected_core >= 0 and not _type_unlocked(game.selected_core):
+		game.selected_core = -1
+	update_status()
+	game.queue_redraw()
 
 ## 部署费用条文本
 func cost_text() -> String:
