@@ -133,9 +133,10 @@ func _core_color() -> Color:
 
 # 定向核心本体贴图（画在矢量图形之上）
 const TEX_CORE := preload("res://images/Direct_core.png")
-## 贴图内六边形的单边边长（像素）：贴图四周有透明边，需按此边长换算缩放，
-## 使贴图内的六边形与游戏格子（边长 = hex_size）大小一致。
-const HEX_ART_EDGE := 2400.0
+## 贴图内六边形本体的单边边长（像素）：由本体两条垂直边（x=1181/5305，宽 4124）反推 = 4124/√3 ≈ 2381（不含延伸）
+const HEX_ART_EDGE := 2381.0
+## 贴图内六边形本体中心（像素坐标）；作为锚点对齐节点原点，补偿贴图透明边不对称（不含延伸）
+const CORE_ART_CENTER := Vector2(3243.0, 3360.0)
 ## 定向核心贴图 Direct_core.png 的主导色（实测 alpha>128 平均），用于其计时器环
 const DIRECTIONAL_ART_COLOR := Color("#9F4353")
 ## 贴图微调偏移（以 hex_size 为单位，随窗口缩放；正 x 向右、正 y 向下）
@@ -161,9 +162,10 @@ func _draw() -> void:
 	if timer_pts.size() >= 2:
 		draw_polyline(timer_pts, ring_col, 3.0)
 
-## 定向核心本体贴图：居中于本节点原点（= 格中心），画在矢量图形之上
+## 定向核心本体贴图：以六边形中心（CORE_ART_CENTER）为锚点对齐节点原点（= 格中心）
 func _draw_core_texture() -> void:
-	# 让贴图内六边形（边长 HEX_ART_EDGE）缩放后与格子（边长 hex_size）一致
-	var span: float = float(TEX_CORE.get_width()) * (hex_size / HEX_ART_EDGE)
+	var scale: float = hex_size / HEX_ART_EDGE
+	var span: float = float(TEX_CORE.get_width()) * scale
 	var off: Vector2 = core_tex_offset * hex_size
-	draw_texture_rect(TEX_CORE, Rect2(off.x - span * 0.5, off.y - span * 0.5, span, span), false)
+	var top_left: Vector2 = off - CORE_ART_CENTER * scale
+	draw_texture_rect(TEX_CORE, Rect2(top_left, Vector2(span, span)), false)

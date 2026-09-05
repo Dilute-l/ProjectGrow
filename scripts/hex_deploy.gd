@@ -244,6 +244,7 @@ func reset() -> void:
 		game.core_container.queue_free()
 	game.core_container = Node2D.new()
 	game.core_container.name = "PlayerCores"
+	game.core_container.z_index = 10
 	game.add_child(game.core_container)
 	game.mode_spread_timers.clear()
 	game.turrets.rebuild()

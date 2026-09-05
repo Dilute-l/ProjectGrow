@@ -24,8 +24,10 @@ const TEX_UPRIGHT := preload("res://images/Direct_upright.png")
 const TEX_DOWNLEFT := preload("res://images/Direct_downleft.png")
 const TEX_DOWNRIGHT := preload("res://images/Direct_downright.png")
 
-# 贴图内六边形的单边边长（像素）：贴图四周有透明边，按此边长换算缩放
-const HEX_ART_EDGE := 2400.0
+# 贴图内六边形的单边边长（像素）：实测非透明包围盒反推（约 2687~2691，取 2690）
+const HEX_ART_EDGE := 2690.0
+# 触手贴图内六边形底座中心（像素坐标）；作为锚点对齐格子中心，补偿透明边不对称
+const TENTACLE_ART_CENTER := Vector2(3196.0, 3377.0)
 # 灰度触手贴图（形状与 Direct_* 一致，供非定向核心 modulate 换色）
 const TEX_GREY_LEFT := preload("res://images/tentacles/tentacle_left.png")
 const TEX_GREY_RIGHT := preload("res://images/tentacles/tentacle_right.png")
@@ -104,7 +106,9 @@ func _draw() -> void:
 ## 在中心 center 处居中画一张贴图（span 为渲染边长），不旋转，方向由图片本身保证。
 ## mod 为颜色调制：灰度贴图乘上占位符色即可精确换色；原玫红贴图传 Color.WHITE 保持不变。
 func _draw_art(center: Vector2, tex: Texture2D, span: float, mod: Color) -> void:
-	draw_texture_rect(tex, Rect2(center.x - span * 0.5, center.y - span * 0.5, span, span), false, mod)
+	var scale: float = span / float(tex.get_width())
+	var top_left: Vector2 = center - TENTACLE_ART_CENTER * scale
+	draw_texture_rect(tex, Rect2(top_left, Vector2(span, span)), false, mod)
 
 ## 六邻居方向 -> 贴图。贴图自身已按对应方向制作，此处只负责按方向选取，不旋转。
 func _dir_entry(dir: Vector2i) -> Texture2D:

@@ -106,7 +106,8 @@ var units: Dictionary = {}
 var polluted: Dictionary = {}               # 所有被污染地块：Vector2i -> {mode,dir}
 var core_container: Node2D               # 我方核心场景实例容器
 var turret_map: Dictionary = {}            # Vector2i -> EnemyTurret 节点
-var turret_container: Node2D               # 敌方炮台场景实例容器
+var turret_container: Node2D               # 敌方炮台场景实例容器（逻辑节点，不绘制）
+var turret_overlay: TurretOverlay          # 敌方炮台覆盖层（独立绘制，最高图层）
 var mode_spread_timers: Dictionary = {}    # 模式名 -> 该模式扩散累计秒数
 var mode_intervals: Dictionary = {}        # 模式名 -> 该模式扩散间隔（秒）
 var hover_cell := Vector2i(999999, 999999)
@@ -232,6 +233,14 @@ func _ready() -> void:
 	_build_unique_target_screen()
 	_build_game_controls()
 	_update_ui_scale()
+	# 图层顺序（z_index）：触手 GroundOverlay(0) < 我方核心 PlayerCores(10) < 敌方炮台 TurretOverlay(20)
+	var ground := get_node("GroundOverlay")
+	if ground != null:
+		ground.z_index = 0
+	turret_overlay = TurretOverlay.new()
+	turret_overlay.name = "TurretOverlay"
+	turret_overlay.z_index = 20
+	add_child(turret_overlay)
 	deploy.reset()
 	queue_redraw()
 	guide.check_first_run()
