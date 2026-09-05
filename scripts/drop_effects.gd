@@ -20,11 +20,13 @@ extends RefCounted
 ##   - 核心     = 我方部署单位（PlayerCore 实例）。
 
 # ---------------------------------------------------------------------------
-# 效果定义表（仅作记录 / 控制台展示；实际逻辑见下方钩子）
+# 词条库（数据来自 maps/effects.json；具体效果逻辑仍在本文件下方各钩子里实现）
 # ---------------------------------------------------------------------------
 const MAX_GENERIC_STACKS := 5
+const EFFECTS_PATH := "res://maps/effects.json"   # 词条库文件路径
 
-const EFFECTS: Array = [
+## effects.json 缺失 / 损坏时的兜底词条（应与 effects.json 内容保持一致）
+const EFFECTS_FALLBACK: Array = [
 	{"id": "battle_extra_core", "category": "unique", "name": "开局增援",
 	 "desc": "战斗开始时，在可部署区域随机额外生成一个该核心"},
 	{"id": "deploy_surround", "category": "unique", "name": "落地蔓延",
@@ -49,6 +51,9 @@ const EFFECTS: Array = [
 	 "desc": "核心生存时间 +20%（乘算，最多 5 层）"},
 ]
 
+## 词条库（运行时从 effects.json 加载；字典可自由扩展 id / category / name / desc / quality 等字段）
+var effects: Array = []
+
 var game
 
 # 运行时叠加状态：core_id(String) -> { effect_id(String) -> 层数(int) }
@@ -61,16 +66,35 @@ var grant_list_label: Label
 
 func _init(g) -> void:
 	game = g
+	_load_effects_library()
 
 # ---------------------------------------------------------------------------
 # 效果定义查询
 # ---------------------------------------------------------------------------
-static func effect_defs() -> Array:
-	return EFFECTS
+## 从 maps/effects.json 加载词条库；缺失 / 为空时回退到内置兜底
+func _load_effects_library() -> void:
+	effects.clear()
+	if FileAccess.file_exists(EFFECTS_PATH):
+		var f := FileAccess.open(EFFECTS_PATH, FileAccess.READ)
+		if f != null:
+			var text := f.get_as_text()
+			f.close()
+			var data = JSON.parse_string(text)
+			if data is Dictionary and data.get("effects") is Array:
+				for entry in data["effects"]:
+					if entry is Dictionary:
+						effects.append(entry.duplicate())
+	if effects.is_empty():
+		push_warning("DropEffects: 词条库 %s 缺失或为空，使用内置兜底" % EFFECTS_PATH)
+		for e in EFFECTS_FALLBACK:
+			effects.append(e.duplicate())
 
-static func find_effect(effect_id: String) -> Dictionary:
-	for e in EFFECTS:
-		if str(e["id"]) == effect_id:
+func effect_defs() -> Array:
+	return effects
+
+func find_effect(effect_id: String) -> Dictionary:
+	for e in effects:
+		if str(e.get("id", "")) == effect_id:
 			return e
 	return {}
 
@@ -287,8 +311,8 @@ func add_console_section(parent: Control) -> void:
 
 	grant_effect_option = OptionButton.new()
 	grant_effect_option.custom_minimum_size = Vector2(170, 0)
-	for idx in range(EFFECTS.size()):
-		var e: Dictionary = EFFECTS[idx]
+	for idx in range(effects.size()):
+		var e: Dictionary = effects[idx]
 		var tag := "专属" if str(e["category"]) == "unique" else "通用"
 		grant_effect_option.add_item("%s·%s" % [tag, str(e["name"])])
 		grant_effect_option.set_item_tooltip(idx, str(e["desc"]))
@@ -321,9 +345,9 @@ func _on_grant_pressed() -> void:
 	if grant_core_option == null or grant_effect_option == null:
 		return
 	var type_idx: int = grant_core_option.selected
-	var eid := str(EFFECTS[grant_effect_option.selected]["id"])
+	var eid := str(effects[grant_effect_option.selected]["id"])
 	var core_name: String = str(game.core_types[type_idx]["name"])
-	var effect_name: String = str(EFFECTS[grant_effect_option.selected]["name"])
+	var effect_name: String = str(effects[grant_effect_option.selected]["name"])
 	var before := stacks(core_id_of_type(type_idx), eid)
 	grant(type_idx, eid)
 	if stacks(core_id_of_type(type_idx), eid) == before:

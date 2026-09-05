@@ -88,7 +88,7 @@ func _build_core_pool() -> Array:
 ## 还能叠加的 BUFF 词条候选
 func _build_buff_pool() -> Array:
 	var out: Array = []
-	for e in DropEffects.effect_defs():
+	for e in game.drop_effects.effect_defs():
 		if _buff_eligible(e):
 			out.append(_make_buff_option(e))
 	return out
@@ -150,7 +150,7 @@ func _unlock_core(core_id: String) -> void:
 	game.hud.update_status()
 
 func _grant_buff(effect_id: String) -> void:
-	var e := DropEffects.find_effect(effect_id)
+	var e = game.drop_effects.find_effect(effect_id)
 	var granted := 0
 	for i in range(game.core_types.size()):
 		if not is_type_unlocked(i):
@@ -167,7 +167,7 @@ func _grant_buff(effect_id: String) -> void:
 
 ## 该词条是否为「专属」类（专属词条需玩家再选择一颗核心来承载）
 func is_unique_effect(effect_id: String) -> bool:
-	var e := DropEffects.find_effect(effect_id)
+	var e = game.drop_effects.find_effect(effect_id)
 	return not e.is_empty() and str(e.get("category", "")) == "unique"
 
 ## 专属词条：只作用于指定的一颗已解锁核心（type_idx），本次仅此一颗
@@ -179,7 +179,7 @@ func grant_unique_buff(effect_id: String, type_idx: int) -> void:
 	var core_id := str(game.core_types[type_idx].get("id", ""))
 	var before = game.drop_effects.stacks(core_id, effect_id)
 	game.drop_effects.grant(type_idx, effect_id)
-	var e := DropEffects.find_effect(effect_id)
+	var e = game.drop_effects.find_effect(effect_id)
 	var core_name := str(game.core_types[type_idx].get("name", core_id))
 	if game.drop_effects.stacks(core_id, effect_id) > before:
 		game.hud.set_status("已获得词条「%s」（作用于：%s）" % [str(e.get("name", effect_id)), core_name])

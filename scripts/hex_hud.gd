@@ -308,7 +308,7 @@ func _fill_buff_overview() -> void:
 			continue
 		var core_name := str(game.core_types[i].get("name", cid))
 		for eid in cur.keys():
-			var e := DropEffects.find_effect(str(eid))
+			var e = game.drop_effects.find_effect(str(eid))
 			if e.is_empty():
 				continue
 			var key := str(eid)
