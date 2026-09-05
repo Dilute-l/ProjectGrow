@@ -30,6 +30,8 @@ const TURRET_TYPE_LABELS := {
 	"sniper": "狙击",
 	"rapid": "快速",
 	"beam": "光束",
+	"sweeper": "扫荡凝视",
+	"mortar": "炮塔",
 }
 
 func _init(g) -> void:

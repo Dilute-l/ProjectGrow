@@ -174,7 +174,7 @@ var cost_value_label: Label
 enum Mode { PLAY, EDIT }
 var mode := Mode.PLAY
 var editor_brush := 0              # 0=墙, 1=炮台
-var editor_turret_type := "basic"  # 地图编辑器当前选择的炮台种类（basic/sniper/rapid/beam）
+var editor_turret_type := "basic"  # 地图编辑器当前选择的炮台种类（basic/sniper/rapid/beam/sweeper/mortar）
 var editor_layer: CanvasLayer
 var mode_button: Button
 var radius_label: Label

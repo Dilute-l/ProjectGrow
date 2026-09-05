@@ -63,6 +63,8 @@ const TURRET_TYPES := {
 	"sniper": {"range": 4, "interval_mult": 5},  # 范围大一格、攻速更慢
 	"rapid": {"range": 2, "interval_mult": 1.5},   # 范围小一格、攻速更快
 	"beam": {"range": 4, "interval_mult": 8},    # 射线清除：范围4，攻击间隔长
+	"sweeper": {"range": 2, "interval_mult": 8},  # 扫荡凝视：范围2圈，4秒清除范围内所有触手
+	"mortar": {"range": 3, "interval_mult": 7},   # 炮塔：普通索敌，3.5秒清除目标一圈内所有触手
 }
 
 # 光束炮台的 6 条单方向射线（六邻域各一个方向），用于射线清除型炮台
@@ -150,43 +152,57 @@ func tick(delta: float, polluted: Dictionary, units: Dictionary, radial_polluted
 	if attack_timer < attack_interval:
 		return false
 	attack_timer = 0.0
+	# 按类型收集本次要清除的目标地块，再统一清除
+	var targets: Array = []
+	var emit_cell := coord
 	if is_beam():
-		# 射线清除：清除一条“含最多污染地块”的射线上的所有地块
-		var line := choose_line_targets(polluted)
-		if line.is_empty():
+		# 射线清除：选一条“含最多污染地块”的射线
+		targets = choose_line_targets(polluted)
+	elif is_sweeper():
+		# 扫荡凝视：清除攻击范围内（距离 ≤ attack_range）的所有触手
+		for cell in polluted.keys():
+			if _cube_dist(cell, coord) <= attack_range:
+				targets.append(cell)
+	elif is_mortar():
+		# 炮塔：普通索敌（最近目标），清除目标周围一圈（距离 ≤ 1）的所有触手
+		var center := choose_target(polluted)
+		if center == NO_TARGET:
 			return false
-		var cleared_any := false
-		for target in line:
-			var pl = polluted.get(target, null)
-			if pl == null:
-				continue
-			if drop_effects != null and not drop_effects.attempt_clear(pl, battle_time):
-				continue  # 被庇护挡住或只是扣除一次耐久，本次不清除
-			polluted.erase(target)
-			radial_polluted.erase(target)
-			directional_polluted.erase(target)
-			if units.has(target):
-				units.erase(target)  # 摧毁我方单位核心
-			if drop_effects != null:
-				stun_timer = maxf(stun_timer, drop_effects.stun_on_clear(pl))
+		emit_cell = center
+		for cell in polluted.keys():
+			if _cube_dist(cell, center) <= 1:
+				targets.append(cell)
+	else:
+		# 普通：清除离自己最近的一块
+		var target := choose_target(polluted)
+		if target == NO_TARGET:
+			return false
+		targets.append(target)
+		emit_cell = target
+	if targets.is_empty():
+		return false
+	var cleared_any := false
+	for cell in targets:
+		if _clear_cell(cell, polluted, units, radial_polluted, directional_polluted, drop_effects, battle_time):
 			cleared_any = true
-		if cleared_any:
-			attacked.emit(coord)
-		return cleared_any
-	var target := choose_target(polluted)
-	if target == NO_TARGET:
+	if cleared_any:
+		attacked.emit(emit_cell)
+	return cleared_any
+
+## 清除单个地块（含耐久/庇护判定、摧毁核心、施加眩晕）；返回是否真的清除
+func _clear_cell(cell: Vector2i, polluted: Dictionary, units: Dictionary, radial_polluted: Dictionary, directional_polluted: Dictionary, drop_effects, battle_time: float) -> bool:
+	var pl = polluted.get(cell, null)
+	if pl == null:
 		return false
-	var pl = polluted.get(target)
 	if drop_effects != null and not drop_effects.attempt_clear(pl, battle_time):
-		return false
-	polluted.erase(target)
-	radial_polluted.erase(target)
-	directional_polluted.erase(target)
-	if units.has(target):
-		units.erase(target)  # 摧毁我方单位核心
+		return false  # 被庇护挡住或只是扣除一次耐久
+	polluted.erase(cell)
+	radial_polluted.erase(cell)
+	directional_polluted.erase(cell)
+	if units.has(cell):
+		units.erase(cell)  # 摧毁我方单位核心
 	if drop_effects != null:
 		stun_timer = maxf(stun_timer, drop_effects.stun_on_clear(pl))
-	attacked.emit(target)
 	return true
 
 ## 当前攻击充能进度 0..1（供主脚本绘制充能环；
@@ -227,6 +243,14 @@ func choose_target(polluted: Dictionary) -> Vector2i:
 ## 是否为直线清除型炮台（beam）
 func is_beam() -> bool:
 	return turret_type == "beam"
+
+## 是否为扫荡凝视（范围内AOE清除）
+func is_sweeper() -> bool:
+	return turret_type == "sweeper"
+
+## 是否为炮塔（目标周围一圈AOE清除）
+func is_mortar() -> bool:
+	return turret_type == "mortar"
 
 ## 射线清除型：在 6 条单方向射线中选“含最多污染地块”的一条，返回该射线上的所有污染地块
 func choose_line_targets(polluted: Dictionary) -> Array:

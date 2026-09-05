@@ -59,6 +59,10 @@ func _turret_body_color(type_name: String, main) -> Color:
 			return Color("26c6da")   # 青色
 		"beam":
 			return Color("ab47bc")   # 紫色
+		"sweeper":
+			return Color("ffd54f")   # 黄色（扫荡凝视）
+		"mortar":
+			return Color("8d6e63")   # 棕色（炮塔）
 		_:
 			return main.COL_TURRET   # 红色（基础）
 

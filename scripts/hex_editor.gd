@@ -14,6 +14,8 @@ const TURRET_TYPE_LABELS := {
 	"sniper": "狙击炮台",
 	"rapid": "速射炮台",
 	"beam": "光束炮台",
+	"sweeper": "扫荡凝视",
+	"mortar": "炮塔",
 }
 
 # 炮台种类下拉框与其 key 列表（构建编辑器 UI 时填充）

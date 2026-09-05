@@ -34,9 +34,9 @@ extends Node2D
 # 部署费用（玩家整体资源；本文件只定义数值，扣费与校验由接线方在部署入口完成）
 # ---------------------------------------------------------------------------
 ## 玩家初始部署费用（点）：开局可用点数
-const DEPLOY_COST_START := 10
+const DEPLOY_COST_START := 70
 ## 玩家部署费用上限（点）：可用点数不得超过该值
-const DEPLOY_COST_MAX := 10
+const DEPLOY_COST_MAX := 70
 ## 提示：每种核心的部署消耗定义在 maps/cores.json 的 cost 字段，
 ## 本文件只存玩家侧初始值与上限。
 
