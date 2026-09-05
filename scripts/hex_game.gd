@@ -281,9 +281,9 @@ func _process(delta: float) -> void:
 			if not burst.is_empty():
 				spread.burst_from(cell, burst, n.mode(), str(n.config.get("id", "")), n.spawn_time)
 		deploy.remove_core(cell)
-	# 2) 所有核心已结束：停止蔓延；若仍有存活炮台则失败
+	# 2) 所有核心已结束：停止蔓延；若费用不足以部署任何核心才失败
 	if units.is_empty():
-		if turrets.alive_count() > 0:
+		if _should_lose():
 			phase = Phase.LOST
 		hud.update_status()
 		queue_redraw()
@@ -318,11 +318,22 @@ func _process(delta: float) -> void:
 			queue_redraw()
 	if attacked and tutorial_gate == "attack":
 		guide.on_attack()
-	if units.is_empty() and turrets.alive_count() > 0:
+	if _should_lose():
 		phase = Phase.LOST
 	spread.free_orphan_cores()
 	hud.update_status()
 	queue_redraw()
+
+## 失败条件：场上没有存活核心，且部署点数不足以部署任何已解锁核心（且仍有存活炮台）
+func _should_lose() -> bool:
+	if not units.is_empty():
+		return false
+	if turrets.alive_count() == 0:
+		return false  # 没有存活炮台（此时应已判胜）
+	for i in range(core_types.size()):
+		if rewards.is_type_unlocked(i) and deploy_points >= drop_effects.deploy_cost(i):
+			return false  # 还有至少一个已解锁核心可部署
+	return true
 
 ## 特殊地块对某模式蔓延间隔的倍率：存在部署于「急速之地」的存活核心则乘其 spread_mult
 func _special_mode_interval_factor(mode_name: String) -> float:
