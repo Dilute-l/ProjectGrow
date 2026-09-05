@@ -199,7 +199,7 @@ func _make_core_option(type_idx: int) -> Dictionary:
 		"title": str(t.get("name", "核心")),
 		"sub": "解锁 · 费用 %d · %s扩散" % [game.drop_effects.deploy_cost(type_idx), bm.display_name()],
 		"color": game.map_data.core_color(t),
-		"desc": "通关奖励：本局从此可部署「%s」。" % str(t.get("name", "核心")),
+		"desc": bm.description(),
 	}
 
 func _make_buff_option(e: Dictionary, rare: bool) -> Dictionary:

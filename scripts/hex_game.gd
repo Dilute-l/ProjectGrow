@@ -25,11 +25,13 @@ extends Node2D
 # ---------------------------------------------------------------------------
 # 关卡列表（按顺序，供编辑器/随机选关使用）；level_index 指向当前关卡
 const LEVEL_PATHS: Array[String] = [
+	"res://maps/level0.json",
 	"res://maps/level1.json",
 	"res://maps/level2.json",
 	"res://maps/level3.json",
 	"res://maps/level4.json",
-	"res://maps/test_turrets.json",
+	"res://maps/level5.json",
+	"res://maps/level6.json",
 ]
 var level_index := 0
 # 本局已通关数（随机关卡选关的“完成总关卡数”；每通关一关 +1，新一局清零）

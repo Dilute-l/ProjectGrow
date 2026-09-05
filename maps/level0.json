@@ -1,0 +1,8 @@
+{
+  "difficulty": 0,
+  "radius": 4,
+  "turrets": [
+	{ "q": 0, "r": 0 }
+  ],
+  "walls": []
+}

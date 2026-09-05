@@ -14,6 +14,9 @@ func interval_fallback() -> float:
 func display_name() -> String:
 	return "蓄力"
 
+func description() -> String:
+	return "存活期间蓄力不扩散，到期后向周围爆发；可部署在任意位置（无视最外圈限制）。"
+
 ## 存活期间不扩散
 func spread_candidates(_cell: Vector2i, _payload: Dictionary) -> Array[Vector2i]:
 	return []

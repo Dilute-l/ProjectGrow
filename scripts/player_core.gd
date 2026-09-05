@@ -136,8 +136,21 @@ func _core_color() -> Color:
 		return Color("3fc1ff")
 	return Color(hex)
 
-# 定向核心本体贴图（画在矢量图形之上）
+# 核心本体贴图（画在矢量图形之上）
 const TEX_CORE := preload("res://images/Direct_core.png")
+const TEX_CORE_CHARGE := preload("res://images/Charge_core.png")
+const TEX_CORE_SPEEDY := preload("res://images/Fast_core.png")
+
+## 本核心对应的本体贴图（有美术的模式）；无美术的模式返回 null（用矢量圆盘）
+func _core_texture() -> Texture2D:
+	match mode():
+		"directional":
+			return TEX_CORE
+		"charge":
+			return TEX_CORE_CHARGE
+		"speedy":
+			return TEX_CORE_SPEEDY
+	return null
 ## 贴图内六边形本体的单边边长（像素）：由本体两条垂直边（x=1181/5305，宽 4124）反推 = 4124/√3 ≈ 2381（不含延伸）
 const HEX_ART_EDGE := 2381.0
 ## 贴图内六边形本体中心（像素坐标）；作为锚点对齐节点原点，补偿贴图透明边不对称（不含延伸）
@@ -152,14 +165,15 @@ func _draw() -> void:
 	# 实心圆盘 + 外圈描边
 	draw_circle(Vector2.ZERO, hex_size * 0.40, col)
 	draw_arc(Vector2.ZERO, hex_size * 0.40, 0.0, TAU, 24, col.lightened(0.5), 2.0)
-	# 定向模式：方向箭头（指向相邻地块中心）
-	if mode() == "directional":
-		var dirv: Vector2i = direction
-		var dirpx: Vector2 = HexGeometry.axial_to_pixel(dirv.x, dirv.y, hex_size).normalized()
-		draw_line(Vector2.ZERO, dirpx * hex_size * 0.62, col.lightened(0.25), 3.0)
-		draw_circle(dirpx * hex_size * 0.62, 3.0, col.lightened(0.25))
-		# 定向核心本体贴图
-		_draw_core_texture()
+	# 有贴图的核心：画本体贴图；定向核心额外画方向箭头
+	var tex := _core_texture()
+	if tex != null:
+		if mode() == "directional":
+			var dirv: Vector2i = direction
+			var dirpx: Vector2 = HexGeometry.axial_to_pixel(dirv.x, dirv.y, hex_size).normalized()
+			draw_line(Vector2.ZERO, dirpx * hex_size * 0.62, col.lightened(0.25), 3.0)
+			draw_circle(dirpx * hex_size * 0.62, 3.0, col.lightened(0.25))
+		_draw_core_texture(tex)
 	# 持续时间环（六边形，画在贴图之上，位于格子边缘）
 	var frac := clampf(remaining / float(config.get("duration", 15.0)), 0.0, 1.0)
 	var timer_pts := HexGeometry.hex_progress_points(Vector2.ZERO, hex_size, frac)
@@ -167,10 +181,10 @@ func _draw() -> void:
 	if timer_pts.size() >= 2:
 		draw_polyline(timer_pts, ring_col, 3.0)
 
-## 定向核心本体贴图：以六边形中心（CORE_ART_CENTER）为锚点对齐节点原点（= 格中心）
-func _draw_core_texture() -> void:
+## 核心本体贴图：以六边形中心（CORE_ART_CENTER）为锚点对齐节点原点（= 格中心）
+func _draw_core_texture(tex: Texture2D) -> void:
 	var scale: float = hex_size / HEX_ART_EDGE
-	var span: float = float(TEX_CORE.get_width()) * scale
+	var span: float = float(tex.get_width()) * scale
 	var off: Vector2 = core_tex_offset * hex_size
 	var top_left: Vector2 = off - CORE_ART_CENTER * scale
-	draw_texture_rect(TEX_CORE, Rect2(top_left, Vector2(span, span)), false)
+	draw_texture_rect(tex, Rect2(top_left, Vector2(span, span)), false)

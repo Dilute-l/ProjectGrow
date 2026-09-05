@@ -19,6 +19,9 @@ func interval_fallback() -> float:
 func display_name() -> String:
 	return "径向"
 
+func description() -> String:
+	return "向周围所有方向蔓延扩散，每块污染地块都会向六个邻居扩散。"
+
 func spread_candidates(cell: Vector2i, _payload: Dictionary) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for d in NEIGHBOR_OFFSETS:

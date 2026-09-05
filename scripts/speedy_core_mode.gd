@@ -16,6 +16,9 @@ func interval_fallback() -> float:
 func display_name() -> String:
 	return "高速"
 
+func description() -> String:
+	return "沿选定方向高速蔓延，蔓延间隔更短。"
+
 func spread_candidates(cell: Vector2i, payload: Dictionary) -> Array[Vector2i]:
 	var dir: Vector2i = payload.get("dir", Vector2i.ZERO)
 	return [cell + dir]

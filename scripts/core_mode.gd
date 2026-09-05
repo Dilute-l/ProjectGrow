@@ -74,3 +74,7 @@ func interval_fallback() -> float:
 ## 该模式在部署/游玩时的名字（调试/UI 用，可覆写）
 func display_name() -> String:
 	return mode()
+
+## 该模式的玩法描述（掉落卡/UI 文案用，可覆写）
+func description() -> String:
+	return display_name()

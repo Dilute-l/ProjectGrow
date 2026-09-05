@@ -26,7 +26,7 @@
 	  "duration": 5,
 	  "spread_interval": 9999.0,
 	  "cost": 20,
-	  "color": "#ffaa00"
+	  "color": "#C25C14"
 	},
 	{
 	  "id": "speedy",
@@ -35,7 +35,7 @@
 	  "duration": 15,
 	  "spread_interval": 1,
 	  "cost": 17,
-	  "color": "#FF6969"
+	  "color": "#3391A1"
 	}
   ]
 }
