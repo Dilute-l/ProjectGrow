@@ -239,6 +239,7 @@ func reset() -> void:
 	game.phase = game.Phase.DEPLOY
 	game.deploy_points = PlayerCore.DEPLOY_COST_START
 	game.battle_time = 0.0
+	game.lose_grace = 0.0
 	game.units.clear()
 	game.polluted.clear()
 	game.special_tiles.clear()
