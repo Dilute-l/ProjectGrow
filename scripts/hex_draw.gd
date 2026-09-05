@@ -7,6 +7,17 @@ extends RefCounted
 ## _draw() 回调调用。所有 draw_* 命令都通过 game 引用发到主节点（CanvasItem）
 ## 上——绘制命令必须在主节点自己的 _draw() 回调期间同步执行。
 
+# 敌方炮台贴图（仿照我方核心 PlayerCore 的贴图渲染；rapid/beam 暂无贴图，保持矢量本体）
+const TEX_TURRET_BASIC := preload("res://images/magica/enemy_basic.png")
+const TEX_TURRET_SNIPER := preload("res://images/magica/enemy_sniper.png")
+# 以下数值由两张贴图的实际非透明像素（alpha>0）包围盒实测反推：
+#   包围盒宽 5000、底边 y=6251（两图一致）→ 六边形边长 = 5000/√3 ≈ 2886.75，
+#   六边形中心 ≈ (3135.5, 3364.25)。原图尺寸 6554×6554。
+## 贴图内六边形的单边边长（像素）
+const TURRET_ART_EDGE := 2886.75
+## 贴图内六边形中心（像素坐标）；作为锚点对齐格子中心，补偿透明边不对称造成的偏移
+const TURRET_ART_CENTER := Vector2(3135.5, 3364.25)
+
 var game
 
 func _init(g) -> void:
@@ -64,7 +75,7 @@ func draw() -> void:
 			var n: Vector2i = game.pending_cell + d
 			if game.geometry.in_bounds(n) and not game.walls.has(n) and not game.turret_positions.has(n):
 				game.draw_arc(game.geometry.hex_center(n), game.hex_size * 0.3, 0.0, TAU, 16, Color(1.0, 1.0, 1.0, 0.35), 2.0)
-	# 敌方炮台（可为多个；按类型着色）
+	# 敌方炮台（可为多个；basic/sniper 用贴图，其余类型保持矢量本体）
 	for p in game.turret_positions:
 		var type_name: String = str(game.turret_types.get(p, "basic"))
 		var body_col: Color = _turret_body_color(type_name)
@@ -73,11 +84,16 @@ func draw() -> void:
 		var t: EnemyTurret = game.turret_map.get(p)
 		var alive: bool = game.mode == game.Mode.EDIT or (t != null and t.alive)
 		if alive:
-			game.draw_circle(tc, game.hex_size * 0.52, body_col)
-			game.draw_arc(tc, game.hex_size * 0.52, 0.0, TAU, 24, ring_col, 2.0)
-			var dir: Vector2 = Vector2(0.0, -1.0) * game.hex_size * 0.82
-			var perp := Vector2(game.hex_size * 0.22, 0.0)
-			game.draw_colored_polygon(PackedVector2Array([tc + dir, tc + perp, tc - perp]), body_col)
+			var tex: Texture2D = _turret_texture(type_name)
+			if tex != null:
+				_draw_turret_texture(tc, tex)
+			else:
+				# 无贴图的类型（rapid/beam）：沿用原矢量本体
+				game.draw_circle(tc, game.hex_size * 0.52, body_col)
+				game.draw_arc(tc, game.hex_size * 0.52, 0.0, TAU, 24, ring_col, 2.0)
+				var dir: Vector2 = Vector2(0.0, -1.0) * game.hex_size * 0.82
+				var perp := Vector2(game.hex_size * 0.22, 0.0)
+				game.draw_colored_polygon(PackedVector2Array([tc + dir, tc + perp, tc - perp]), body_col)
 			if game.phase == game.Phase.RUNNING and game.mode == game.Mode.PLAY and t != null:
 				var afrac := t.charge_fraction()
 				var charge_pts := HexGeometry.hex_progress_points(tc, game.hex_size, afrac)
@@ -135,6 +151,23 @@ func _turret_body_color(type_name: String) -> Color:
 ## 炮台类型 -> 外圈/充能环颜色（主体色提亮）
 func _turret_ring_color(type_name: String) -> Color:
 	return _turret_body_color(type_name).lightened(0.55)
+
+## 炮台类型 -> 本体贴图；无贴图的类型（rapid/beam）返回 null
+func _turret_texture(type_name: String) -> Texture2D:
+	match type_name:
+		"basic":
+			return TEX_TURRET_BASIC
+		"sniper":
+			return TEX_TURRET_SNIPER
+	return null
+
+## 在 center 绘制一张炮台贴图：以贴图内六边形中心为锚点对齐格子中心，
+## span = 贴图宽 × (hex_size / TURRET_ART_EDGE)，使贴图内六边形与游戏格子大小一致。
+func _draw_turret_texture(center: Vector2, tex: Texture2D) -> void:
+	var scale: float = game.hex_size / TURRET_ART_EDGE
+	var span: float = float(tex.get_width()) * scale
+	var top_left: Vector2 = center - TURRET_ART_CENTER * scale
+	game.draw_texture_rect(tex, Rect2(top_left, Vector2(span, span)), false)
 
 func tile_color(cell: Vector2i) -> Color:
 	if game.walls.has(cell):

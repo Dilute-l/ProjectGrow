@@ -9,12 +9,13 @@ extends RefCounted
 ##
 ## 【战后掉落结构】(build_drop_queue)
 ## 每场 WON 生成一串「掉落项」(queue)，逐项弹出让玩家 3 选 1：
-##   - 第 1 项「必定掉落」（必定出现）：
-##       首胜（本局第 1 次通关）必定是新单位；
-##       之后每场：20% 稀有词条 / 40% 普通词条 / 40% 新单位；
+##   - 第 1 项「必定掉落」（必定出现）：其 3 张候选卡【分别独立】选池子，
+##       因此 3 张卡的类型可以互不相同（也可能相同）：
+##       首胜（本局第 1 次通关）每张卡都必定是新单位；
+##       之后每场每张卡：20% 稀有词条 / 40% 普通词条 / 40% 新单位；
 ##   - 第 2 项「概率掉落」：30% 概率出现，目前内容为特殊地块
 ##     （special_tiles.json 的种类，重复获得可叠加出现数量）。
-## 每一项内部都是 3 选 1，且候选等概率出现。
+## 每一项内部都是 3 选 1。
 ##
 ## 词条稀有度（只影响战后掉落展示与归类，不改变词条效果）：
 ##   - 普通词条 = effects.json 里 category=="generic" 的四条
@@ -79,23 +80,31 @@ const NORMAL_ROLL_CHANCE := 0.40
 var _wins := 0
 
 ## 生成本次 WON 的整串掉落项；每个元素为：
-##   { "kind": "core"/"buff"/"tile"（展示用）, "label": 展示文案,
-##     "options": Array（≤OFFER_COUNT 张卡，等概率）}
+##   { "kind": 展示用标记, "label": 展示文案, "guaranteed": bool,
+##     "options": Array（≤OFFER_COUNT 张卡）}
 func build_drop_queue() -> Array:
 	_wins += 1
 	var queue: Array = []
-	# —— 必定掉落（总是出现）——
-	var gk := _roll_guaranteed_kind()
-	var gpool := _pool_for_kind(gk)
-	if gpool.is_empty():
-		for alt in ["core", "normal", "rare"]:
-			if alt == gk:
-				continue
-			gpool = _pool_for_kind(alt)
-			if not gpool.is_empty():
-				gk = alt
-				break
-	queue.append(_make_queue_item(gk, gpool, true))
+	# —— 必定掉落（总是出现）：3 张候选卡分别独立选池子，类型可互不相同 ——
+	var pools := {
+		"core": _build_core_pool(),
+		"normal": _build_buff_pool(false),
+		"rare": _build_buff_pool(true),
+	}
+	var opts: Array = []
+	for _i in range(OFFER_COUNT):
+		var kind := _roll_guaranteed_kind()
+		var pool: Array = pools[kind]
+		# 掷中的池子已空：按 core→normal→rare 兜底到其他非空池
+		if pool.is_empty():
+			var fallback := _fallback_kind(pools, kind)
+			if fallback == "":
+				break  # 三个池子都空了，提前结束
+			kind = fallback
+			pool = pools[kind]
+		pool.shuffle()
+		opts.append(pool.pop_back())  # 不放回：取走即从池中移除，避免同批重复
+	queue.append({"kind": "mixed", "guaranteed": true, "label": "三选一奖励", "options": opts})
 	# —— 概率掉落（30% 触发；目前内容 = 特殊地块）——
 	if randf() < CHANCE_DROP_PROBABILITY:
 		var cpool := _build_chance_pool()
@@ -114,18 +123,15 @@ func _roll_guaranteed_kind() -> String:
 		return "normal"
 	return "core"
 
-## 取某个类别的候选池（均匀池，之后统一洗牌取 3）
-func _pool_for_kind(kind: String) -> Array:
-	match kind:
-		"core":
-			return _build_core_pool()
-		"normal":
-			return _build_buff_pool(false)
-		"rare":
-			return _build_buff_pool(true)
-		"chance":
-			return _build_chance_pool()
-	return []
+## 按 core→normal→rare 顺序返回第一个非空池的 kind；全部为空返回 ""
+func _fallback_kind(pools: Dictionary, exclude: String) -> String:
+	for alt in ["core", "normal", "rare"]:
+		if alt == exclude:
+			continue
+		var pool: Array = pools[alt]
+		if not pool.is_empty():
+			return alt
+	return ""
 
 ## 组装一个掉落项：洗牌 + 截取 ≤OFFER_COUNT 张卡
 func _make_queue_item(kind: String, pool: Array, guaranteed: bool) -> Dictionary:

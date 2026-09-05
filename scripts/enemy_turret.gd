@@ -62,14 +62,14 @@ const TURRET_TYPES := {
 	"basic": {"range": 3, "interval_mult": 3},   # 基础
 	"sniper": {"range": 4, "interval_mult": 5},  # 范围大一格、攻速更慢
 	"rapid": {"range": 2, "interval_mult": 1.5},   # 范围小一格、攻速更快
-	"beam": {"range": 4, "interval_mult": 8},    # 直线清除：范围4，攻击间隔长
+	"beam": {"range": 4, "interval_mult": 8},    # 射线清除：范围4，攻击间隔长
 }
 
-# 穿过炮台的 3 条直线（每对相反方向构成一条直线），用于直线清除型炮台
-const LINES: Array = [
-	[Vector2i(1, 0), Vector2i(-1, 0)],
-	[Vector2i(0, 1), Vector2i(0, -1)],
-	[Vector2i(1, -1), Vector2i(-1, 1)],
+# 光束炮台的 6 条单方向射线（六邻域各一个方向），用于射线清除型炮台
+const RAYS: Array[Vector2i] = [
+	Vector2i(1, 0), Vector2i(-1, 0),
+	Vector2i(0, 1), Vector2i(0, -1),
+	Vector2i(1, -1), Vector2i(-1, 1),
 ]
 
 # ---------------------------------------------------------------------------
@@ -151,7 +151,7 @@ func tick(delta: float, polluted: Dictionary, units: Dictionary, radial_polluted
 		return false
 	attack_timer = 0.0
 	if is_beam():
-		# 直线清除：清除一条“含最多污染地块”的直线上的所有地块
+		# 射线清除：清除一条“含最多污染地块”的射线上的所有地块
 		var line := choose_line_targets(polluted)
 		if line.is_empty():
 			return false
@@ -228,16 +228,15 @@ func choose_target(polluted: Dictionary) -> Vector2i:
 func is_beam() -> bool:
 	return turret_type == "beam"
 
-## 直线清除型：在 3 条直线中选“含最多污染地块”的一条，返回该直线上的所有污染地块
+## 射线清除型：在 6 条单方向射线中选“含最多污染地块”的一条，返回该射线上的所有污染地块
 func choose_line_targets(polluted: Dictionary) -> Array:
 	var best: Array = []
-	for line in LINES:
+	for d: Vector2i in RAYS:
 		var tiles: Array = []
-		for d: Vector2i in line:
-			for k in range(1, attack_range + 1):
-				var cell: Vector2i = coord + d * k
-				if polluted.has(cell):
-					tiles.append(cell)
+		for k in range(1, attack_range + 1):
+			var cell: Vector2i = coord + d * k
+			if polluted.has(cell):
+				tiles.append(cell)
 		if tiles.size() > best.size():
 			best = tiles
 	return best
