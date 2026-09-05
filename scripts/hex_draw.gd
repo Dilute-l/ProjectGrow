@@ -40,6 +40,22 @@ func draw() -> void:
 		var closed := pts.duplicate()
 		closed.append(pts[0])
 		game.draw_polyline(closed, Color(1.0, 1.0, 1.0, 0.18), 1.0)
+	# 特殊地块标记（半透明着色 + 彩色描边）
+	for cell in game.special_tiles:
+		var def: Dictionary = game.special_kind_defs.get(str(game.special_tiles[cell]), {})
+		if def.is_empty():
+			continue
+		var col: Color = Color(str(def.get("color", "#ffffff")))
+		var cc: Vector2 = game.geometry.hex_center(cell)
+		var s: float = game.hex_size - 1.2
+		var pts := PackedVector2Array()
+		for i in 6:
+			var a := deg_to_rad(60.0 * i + 30.0)
+			pts.append(cc + Vector2(cos(a), sin(a)) * s)
+		game.draw_colored_polygon(pts, Color(col.r, col.g, col.b, 0.38))
+		var closed := pts.duplicate()
+		closed.append(pts[0])
+		game.draw_polyline(closed, col, 2.0)
 	# 定向部署待选方向的高亮
 	if game.awaiting_direction:
 		var pc: Vector2 = game.geometry.hex_center(game.pending_cell)
@@ -69,6 +85,38 @@ func draw() -> void:
 			game.draw_circle(tc, game.hex_size * 0.52, game.COL_TURRET_DEAD)
 			game.draw_line(tc + Vector2(-1, -1) * game.hex_size * 0.3, tc + Vector2(1, 1) * game.hex_size * 0.3, ring_col, 3.0)
 			game.draw_line(tc + Vector2(-1, 1) * game.hex_size * 0.3, tc + Vector2(1, -1) * game.hex_size * 0.3, ring_col, 3.0)
+	_draw_special_hint()
+
+## 悬停提示：鼠标停留在特殊地块上时，画一个小信息条（名称 + 描述）
+func _draw_special_hint() -> void:
+	if not game.special_tiles.has(game.hover_cell):
+		return
+	var def: Dictionary = game.special_kind_defs.get(str(game.special_tiles[game.hover_cell]), {})
+	if def.is_empty():
+		return
+	var font := ThemeDB.fallback_font
+	if font == null:
+		return
+	var fsize := 13
+	var title := "【特殊地块】" + str(def.get("name", "?"))
+	var desc := str(def.get("desc", ""))
+	var col: Color = Color(str(def.get("color", "#ffffff")))
+	var pos: Vector2 = game.geometry.hex_center(game.hover_cell) + Vector2(10, 30)
+	var lines := [title, desc]
+	var w := 60.0
+	for t in lines:
+		w = maxf(w, font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize).x)
+	var h := fsize * 2 + 24.0
+	var bg := Rect2(pos - Vector2(6, 6), Vector2(w + 14.0, h))
+	game.draw_rect(bg, Color(0.04, 0.05, 0.10, 0.92))
+	game.draw_rect(bg.grow(-1.0), col.darkened(0.2), false, 1.0)
+	var y := pos.y
+	var idx := 0
+	for t in lines:
+		var tc := col.lightened(0.25) if idx == 0 else Color("cfe0ff")
+		game.draw_string(font, Vector2(pos.x, y), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fsize, tc)
+		y += fsize + 5
+		idx += 1
 
 ## 炮台类型 -> 主体颜色
 func _turret_body_color(type_name: String) -> Color:

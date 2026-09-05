@@ -20,6 +20,10 @@ var turret_interval_spins: Array = []  # 与 turret_type_names 对应
 var default_core_spreads: Array = []   # 每类核心的默认扩散间隔
 var core_duration_spins: Array = []    # 与 core_types 下标一一对应（存活时间）
 var default_core_durations: Array = [] # 每类核心的默认存活时间
+var special_kind_option: OptionButton  # 特殊地块种类选择
+var special_kind_ids: Array = []       # 与下拉项对应的种类 id
+var special_auto_check: CheckBox       # 每场随机（测试布尔）开关
+var special_counts_label: Label        # 本局持有/一次性 统计
 
 const TURRET_TYPE_LABELS := {
 	"basic": "基础",
@@ -110,6 +114,49 @@ func build_console() -> void:
 		var sb := add_spin_row(vbox, lbl, 0.1, 300.0, 0.1, _turret_current_interval(type_name), false)
 		turret_interval_spins.append(sb)
 
+	# —— 特殊地块：随机指定到可部署地块 ——
+	vbox.add_child(section_label("—— 特殊地块 ——"))
+	special_kind_ids.clear()
+	special_kind_option = OptionButton.new()
+	special_kind_option.custom_minimum_size = Vector2(200, 0)
+	for kid in game.special_kind_defs.keys():
+		special_kind_ids.append(str(kid))
+		var kd: Dictionary = game.special_kind_defs[kid]
+		special_kind_option.add_item(str(kd.get("name", kid)))
+		special_kind_option.set_item_tooltip(special_kind_option.item_count - 1, str(kd.get("desc", "")))
+	var st_row := HBoxContainer.new()
+	st_row.add_theme_constant_override("separation", 8)
+	vbox.add_child(st_row)
+	st_row.add_child(special_kind_option)
+	var st_btn := Button.new()
+	st_btn.text = "随机指定到可部署地块"
+	st_btn.pressed.connect(_on_special_designate_pressed)
+	st_row.add_child(st_btn)
+	# 每场随机（测试布尔）：开启后，每场战斗按战后/控制台获得次数随机出现特殊地块
+	var auto_row := HBoxContainer.new()
+	auto_row.add_theme_constant_override("separation", 8)
+	vbox.add_child(auto_row)
+	special_auto_check = CheckBox.new()
+	special_auto_check.text = "每场随机：战后获得的地块每场随机出现（测试布尔）"
+	special_auto_check.button_pressed = game.special_auto_every_battle
+	special_auto_check.toggled.connect(_on_special_auto_toggled)
+	auto_row.add_child(special_auto_check)
+	var sim_btn := Button.new()
+	sim_btn.text = "模拟战后获得 +1"
+	sim_btn.pressed.connect(_on_special_simulate_pressed)
+	auto_row.add_child(sim_btn)
+	special_counts_label = Label.new()
+	special_counts_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	special_counts_label.custom_minimum_size = Vector2(400, 0)
+	special_counts_label.add_theme_color_override("font_color", Color("ffd166"))
+	vbox.add_child(special_counts_label)
+	var st_hint := Label.new()
+	st_hint.text = "开启开关时：本局每获得 1 次该地块，之后每场随机出现 1 个（按战后卡次数累计）。关闭时：地块卡为一次性，仅下一场出现。模拟按钮=战后获得 +1（免通关即可测试）。\n「随机指定」按钮为当前场手动指定 1 格（每场重置后清空）。悬停地块可查看效果。"
+	st_hint.add_theme_color_override("font_color", Color("9fb0cc"))
+	st_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(st_hint)
+	_refresh_special_counts()
+
 	# 掉落效果（仅此处可授予）
 	game.drop_effects.add_console_section(vbox)
 
@@ -181,6 +228,9 @@ func open() -> void:
 	for k in range(turret_interval_spins.size()):
 		var type_name: String = turret_type_names[k]
 		turret_interval_spins[k].value = _turret_current_interval(type_name)
+	if special_auto_check != null:
+		special_auto_check.button_pressed = game.special_auto_every_battle
+	_refresh_special_counts()
 	game.drop_effects.refresh_grant_ui()
 	game.console_open = true
 	game.console_layer.visible = true
@@ -261,3 +311,33 @@ func _default_effective_interval(type_name: String) -> float:
 
 func _turret_type_label(type_name: String) -> String:
 	return str(TURRET_TYPE_LABELS.get(type_name, type_name))
+
+func _on_special_designate_pressed() -> void:
+	if special_kind_option == null or special_kind_ids.is_empty():
+		return
+	game.map_data.designate_special_tile(str(special_kind_ids[special_kind_option.selected]))
+
+func _on_special_auto_toggled(on: bool) -> void:
+	game.special_auto_every_battle = on
+	game.hud.set_status(("已开启每场随机：战后获得的地块每场按次数随机出现" if on else "已关闭每场随机：战后获得的地块改为一次性（仅下一场）"))
+	game.hud.update_status()
+	_refresh_special_counts()
+
+## 免通关测试：等价于在战后掉落里选了一次当前种类的地块卡
+func _on_special_simulate_pressed() -> void:
+	if special_kind_option == null or special_kind_ids.is_empty():
+		return
+	game.rewards.grant_tile(str(special_kind_ids[special_kind_option.selected]))
+	_refresh_special_counts()
+
+func _refresh_special_counts() -> void:
+	if special_counts_label == null:
+		return
+	var parts: Array = []
+	for kid in game.special_pool.keys():
+		var nm := str(game.special_kind_defs.get(kid, {}).get("name", kid))
+		parts.append("%s×%d(每场)" % [nm, int(game.special_pool[kid])])
+	for kid in game.special_once.keys():
+		var nm := str(game.special_kind_defs.get(kid, {}).get("name", kid))
+		parts.append("%s×%d(一次性)" % [nm, int(game.special_once[kid])])
+	special_counts_label.text = "本局地块统计：" + ("、".join(PackedStringArray(parts)) if not parts.is_empty() else "（无）")

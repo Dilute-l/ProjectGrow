@@ -197,3 +197,96 @@ func default_unlocked_ids() -> Array:
 	if not game.core_types.is_empty():
 		return [str(game.core_types[0].get("id", "core"))]
 	return []
+
+# ---------------------------------------------------------------------------
+# 特殊地块库（maps/special_tiles.json）
+# ---------------------------------------------------------------------------
+const SPECIAL_TILES_PATH := "res://maps/special_tiles.json"
+
+## 文件缺失 / 损坏时的兜底（应与 special_tiles.json 内容一致）
+const SPECIAL_TILES_FALLBACK: Array = [
+	{"id": "fast_spread", "name": "急速之地", "color": "#5cd8ff",
+	 "desc": "核心部署于此地块时，蔓延时间间隔 -50%", "spread_mult": 0.5},
+	{"id": "long_life", "name": "长寿之地", "color": "#8ae29a",
+	 "desc": "核心部署于此地块时，存活时间延长 50%", "duration_mult": 1.5},
+	{"id": "random_swap", "name": "变形之地", "color": "#ff9a5c",
+	 "desc": "核心部署于此地块时，战斗开始后变身为随机其他核心（从所有核心类型中选取）", "swap_random": true},
+]
+
+## 加载特殊地块种类定义（写入 game.special_kind_defs）
+func load_special_tiles() -> void:
+	game.special_kind_defs.clear()
+	if FileAccess.file_exists(SPECIAL_TILES_PATH):
+		var f := FileAccess.open(SPECIAL_TILES_PATH, FileAccess.READ)
+		if f != null:
+			var text := f.get_as_text()
+			f.close()
+			var data = JSON.parse_string(text)
+			if data is Dictionary and data.get("special_tiles") is Array:
+				for entry in data["special_tiles"]:
+					if entry is Dictionary:
+						var id := str(entry.get("id", ""))
+						if id != "":
+							game.special_kind_defs[id] = entry.duplicate()
+	if game.special_kind_defs.is_empty():
+		push_warning("HexMap: 特殊地块库 %s 缺失或为空，使用内置兜底" % SPECIAL_TILES_PATH)
+		for e in SPECIAL_TILES_FALLBACK:
+			game.special_kind_defs[str(e["id"])] = e.duplicate()
+
+## 随机取一个当前“可部署地块”（最外圈、非墙、非炮台、未被单位占用、未被指定为其他特殊地块）
+func random_deployable_cell() -> Vector2i:
+	var cells: Array[Vector2i] = []
+	for c in game.geometry.all_cells():
+		if game.geometry.is_edge(c) and not game.walls.has(c) \
+				and not game.turret_positions.has(c) and not game.units.has(c) \
+				and not game.special_tiles.has(c):
+			cells.append(c)
+	if cells.is_empty():
+		return Vector2i(999999, 999999)
+	return cells[randi() % cells.size()]
+
+## 指定：把“随机一个可部署地块”标为 kind_id 特殊地块（可多次调用以叠加多个）
+func designate_special_tile(kind_id: String) -> bool:
+	if not game.special_kind_defs.has(kind_id):
+		return false
+	var cell := random_deployable_cell()
+	if cell.x == 999999:
+		game.hud.set_status("没有可用于指定特殊地块的可部署地块")
+		return false
+	game.special_tiles[cell] = kind_id
+	game.hud.set_status("已将地块 %s 指定为「%s」（悬停可查看效果）" % [str(cell), str(game.special_kind_defs[kind_id].get("name", kind_id))])
+	game.queue_redraw()
+	return true
+
+# ---------------------------------------------------------------------------
+# 每场随机（测试布尔）：把本局累计的特殊地块按次数随机铺到可部署地块
+# ---------------------------------------------------------------------------
+## 开启 special_auto_every_battle：每场战斗开始前，把 special_pool 里每种地块
+## 按累计次数随机铺到可部署格（随机种子每场重掷）。关闭时：把 special_once 里的
+## 一次性地块铺一次后清空（战后获得 = 仅下一场生效）。
+## 由 deploy.reset() 在清空 special_tiles 后调用。返回实际铺设的格数。
+func apply_special_layout_for_battle() -> int:
+	var total := 0
+	if game.special_auto_every_battle:
+		for kid in game.special_pool.keys():
+			total += _designate_random_cells(str(kid), int(game.special_pool[kid]))
+	else:
+		for kid in game.special_once.keys():
+			total += _designate_random_cells(str(kid), int(game.special_once[kid]))
+		game.special_once.clear()
+	return total
+
+## 把 kind_id 随机铺 count 个可部署格（彼此不重复、不与已有特殊地块重叠）；返回铺设数
+func _designate_random_cells(kind_id: String, count: int) -> int:
+	if count <= 0 or not game.special_kind_defs.has(kind_id):
+		return 0
+	var placed := 0
+	var guard := 0
+	while placed < count and guard < 200:
+		guard += 1
+		var cell := random_deployable_cell()
+		if cell.x == 999999:
+			break
+		game.special_tiles[cell] = kind_id
+		placed += 1
+	return placed

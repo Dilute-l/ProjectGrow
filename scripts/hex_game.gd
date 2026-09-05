@@ -59,6 +59,17 @@ var walls: Dictionary = {}                    # Vector2i -> true
 var turret_positions: Array[Vector2i] = []    # 所有敌方炮台位置
 var turret_types: Dictionary = {}             # 炮台位置 -> 类型名（basic/sniper/rapid）
 var turret_interval_overrides: Dictionary = {} # 类型名 -> 攻击间隔覆盖（秒；控制台临时平衡用，重建关卡时仍生效）
+# 特殊地块：定义来自 maps/special_tiles.json；special_tiles = 地块 -> 种类 id
+var special_kind_defs: Dictionary = {}     # id -> 定义（name/desc/color/效果参数…）
+var special_tiles: Dictionary = {}         # Vector2i -> 种类 id（当前关卡内已指定，可多次指定）
+# —— 特殊地块 · 每场随机（测试布尔）——
+# special_auto_every_battle = true：本局在战后获得的特殊地块按「获得次数」每场随机出现；
+# false：战后获得的地块卡为一次性（仅下一场出现，随后清空）。
+var special_auto_every_battle := false
+# 本局战后获得的地块（开启开关后：每场按次数随机出现）：kind_id -> 次数
+var special_pool: Dictionary = {}
+# 一次性地块（关闭开关时战后获得）：kind_id -> 次数；只作用于下一场，应用后清空
+var special_once: Dictionary = {}
 
 # 核心数据（从文件读取）
 var core_types: Array = []     # 每个元素为 Dictionary：{id,name,mode,duration,spread_interval,color,unlocked_by_default}
@@ -200,6 +211,7 @@ func _ready() -> void:
 	map_data.load_map()
 	map_data.load_cores()
 	map_data.register_core_modes()
+	map_data.load_special_tiles()
 	rewards.reset_run()   # 新一局：只解锁默认核心（定向）
 	selected_core = clampi(selected_core, -1, core_types.size() - 1)
 	geometry.fit_hex_size()
@@ -264,6 +276,7 @@ func _process(delta: float) -> void:
 		if bm == null:
 			continue
 		var iv: float = mode_intervals.get(m, bm.interval_fallback()) * drop_effects.spread_interval_multiplier(m)
+		iv *= _special_mode_interval_factor(m)
 		mode_spread_timers[m] = mode_spread_timers.get(m, 0.0) + delta
 		if mode_spread_timers[m] >= iv:
 			mode_spread_timers[m] = 0.0
@@ -289,6 +302,20 @@ func _process(delta: float) -> void:
 	spread.free_orphan_cores()
 	hud.update_status()
 	queue_redraw()
+
+## 特殊地块对某模式蔓延间隔的倍率：存在部署于「急速之地」的存活核心则乘其 spread_mult
+func _special_mode_interval_factor(mode_name: String) -> float:
+	var f := 1.0
+	for n in units.values():
+		if n.mode() != mode_name:
+			continue
+		var kid := str(special_tiles.get((n as PlayerCore).coord, ""))
+		if kid == "":
+			continue
+		var def: Dictionary = special_kind_defs.get(kid, {})
+		if def.has("spread_mult"):
+			f = minf(f, float(def["spread_mult"]))
+	return f
 
 func _on_viewport_size_changed() -> void:
 	geometry.fit_hex_size()

@@ -1,0 +1,28 @@
+{
+  "special_tiles": [
+	{
+	  "id": "fast_spread",
+	  "name": "急速之地",
+	  "category": "special",
+	  "color": "#5cd8ff",
+	  "desc": "核心部署于此地块时，蔓延时间间隔 -50%",
+	  "spread_mult": 0.5
+	},
+	{
+	  "id": "long_life",
+	  "name": "长寿之地",
+	  "category": "special",
+	  "color": "#8ae29a",
+	  "desc": "核心部署于此地块时，存活时间延长 50%",
+	  "duration_mult": 1.5
+	},
+	{
+	  "id": "random_swap",
+	  "name": "变形之地",
+	  "category": "special",
+	  "color": "#ff9a5c",
+	  "desc": "核心部署于此地块时，会随机替换为其他核心",
+	  "swap_random": true
+	}
+  ]
+}
