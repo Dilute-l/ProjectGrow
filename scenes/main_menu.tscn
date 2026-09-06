@@ -140,6 +140,64 @@ text = "退出游戏"
 stream = SubResource("AudioStreamOggVorbis_bqqt6")
 autoplay = true
 
+[node name="MagicGirl" type="Label" parent="." unique_id=1598848576]
+layout_mode = 0
+offset_left = 600.0
+offset_top = 288.0
+offset_right = 1000.0
+offset_bottom = 389.0
+theme_override_colors/font_shadow_color = Color(0.83437306, 8.45176e-05, 0.6680079, 0.7019608)
+theme_override_colors/font_outline_color = Color(0.61960787, 0.3019608, 0.99607843, 1)
+theme_override_constants/outline_size = 20
+theme_override_constants/shadow_outline_size = 36
+theme_override_font_sizes/font_size = 100
+text = "魔法少女"
+
+[node name="And" type="Label" parent="." unique_id=1886157099]
+layout_mode = 0
+offset_left = 703.99994
+offset_top = 416.0
+offset_right = 803.99994
+offset_bottom = 517.0
+rotation = 0.26005405
+theme_override_font_sizes/font_size = 100
+text = "和"
+
+[node name="Tentacles" type="Label" parent="." unique_id=282503571]
+layout_mode = 0
+offset_left = 824.0
+offset_top = 472.0
+offset_right = 1024.0
+offset_bottom = 573.0
+theme_override_colors/font_color = Color(0.92156863, 0.44705883, 0.52156866, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.5686275)
+theme_override_colors/font_outline_color = Color(1, 0.8039216, 0.8352941, 1)
+theme_override_constants/shadow_offset_y = 1
+theme_override_constants/outline_size = 20
+theme_override_constants/shadow_outline_size = 53
+theme_override_font_sizes/font_size = 100
+text = "触手"
+
+[node name="Was" type="Label" parent="." unique_id=1547537075]
+layout_mode = 0
+offset_left = 680.00006
+offset_top = 616.0
+offset_right = 880.00006
+offset_bottom = 717.0
+rotation = -0.08726646
+theme_override_font_sizes/font_size = 100
+text = "曾是"
+
+[node name="Enemys" type="Label" parent="." unique_id=687756709]
+layout_mode = 0
+offset_left = 912.0
+offset_top = 624.00006
+offset_right = 1112.0
+offset_bottom = 725.00006
+rotation = 0.08726646
+theme_override_font_sizes/font_size = 100
+text = "敌人"
+
 [connection signal="pressed" from="StartGame" to="." method="_on_start_game_pressed"]
 [connection signal="pressed" from="Credits" to="." method="_on_credits_pressed"]
 [connection signal="pressed" from="Quit" to="." method="_on_quit_pressed"]
