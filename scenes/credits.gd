@@ -5,6 +5,7 @@ extends Control
 var _press_tween: Tween
 var _base_scale: Vector2
 
+const MEMBER_CARDS := ["Dilute", "Catkin", "Midu", "M3", "Hatori"]
 
 func _ready() -> void:
 	_base_scale = bg.scale
@@ -25,25 +26,54 @@ func _update_bg() -> void:
 func _on_button_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
-
 func _on_dsh_button_down() -> void:
 	$BIGFATFISH1.play()
-	_press_anim($DSH, true)
+	_press_fx($DSH, true)
 
 func _on_dsh_button_up() -> void:
 	$BIGFATFISH2.play()
-	_press_anim($DSH, false)  
+	_press_fx($DSH, false)  
+	
+	
 
-func _press_anim(btn: Button, down: bool) -> void:
-	# 打断上一次还没播完的动画，避免快速连点卡形变
+func _press_fx(btn: Button, down: bool) -> void:
+	if btn == null:
+		return
+	if down:
+		$BIGFATFISH1.play()          # 按下音
+	else:
+		$BIGFATFISH2.play()          # 松开音
+	# 第一次按下时记住该按钮自己的原始 scale
+	if not btn.has_meta("base_scale"):
+		btn.set_meta("base_scale", btn.scale)
+	var base: Vector2 = btn.get_meta("base_scale")
 	if _press_tween != null and _press_tween.is_valid():
 		_press_tween.kill()
 	_press_tween = create_tween()
 	if down:
-		# 平滑压扁：0.08s 内缩到 0.9（可改 0.85~0.95 控制幅度）
-		_press_tween.tween_property(btn, "scale", Vector2(0.32, 0.25), 0.08) \
+		# 压扁：横向微撑、纵向压到约 0.7（幅度自己调到顺手）
+		_press_tween.tween_property(btn, "scale", Vector2(base.x * 1.05, base.y * 0.7), 0.08) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	else:
-		# 平滑回弹：0.15s 回到原始大小，BACK 曲线会轻微过冲
-		_press_tween.tween_property(btn, "scale", Vector2(0.3, 0.3), 0.15) \
+		# 回弹到初始大小（BACK 轻微过冲）
+		_press_tween.tween_property(btn, "scale", base, 0.15) \
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _on_catkin_button_down() -> void:
+	$BIGFATFISH1.play()
+	_press_fx($Catkin/CatkinBtn, true)
+	
+func _on_catkin_button_up() -> void:
+	_toggle_card_hidden()
+	$BIGFATFISH2.play()
+	_press_fx($Catkin/CatkinBtn, false)
+	
+func _toggle_card_hidden() -> void:
+	for card in MEMBER_CARDS:
+		var hidden: CanvasItem = get_node_or_null("%s/Hidden" % card)
+		var tile: CanvasItem = get_node_or_null("%s/BlackTile" % card)
+		if hidden != null:
+			hidden.visible = not hidden.visible
+		if tile != null:
+			tile.visible = not tile.visible

@@ -50,6 +50,12 @@ loop = true
 [sub_resource type="AudioStreamMP3" id="AudioStreamMP3_0ctdu"]
 data = PackedByteArray("//vkQAAADMBMRmHse2qgCYjMPY9tVkExJYex7arIJiSw9j21e0RJRQ1SqbQ9ZKhMCEIlD1HIr7MEVX2cmcp039hQdqG35p23yNZq+8CzjssQnYll4KEpmzw1e5sCsmT7kyNTo/1WkCEHyg1yeIDeOICAjU+HGToORq2XxKiTmUIYepxt5zqoehQnWzrxkIhGKdzeQY0z+WPA1SHCiP4MfFKahv8M9olPff974pTL/dH+4ETw4+BMBkfgeZ388Pn4eIzf/P//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////e0RJRQ1SqbQ9ZKhMCEIlD1HIr7MEVX2cmcp039hQdqG35p23yNZq+8CzjssQnYll4KEpmzw1e5sCsmT7kyNTo/1WkCEHyg1yeIDeOICAjU+HGToORq2XxKiTmUIYepxt5zqoehQnWzrxkIhGKdzeQY0z+WPA1SHCiP4MfFKahv8M9olPff974pTL/dH+4ETw4+BMBkfgeZ388Pn4eIzf/CbUUUnVLTAlYTNRElmfjk1SPlIT1yS+1/Ocq2UtEMWBS/a1oaEiMvEs1EcuW0psnLNHQLBeWBAIQoHBuWpkWynM8JELQqUwc5bgXhQF4HOdIB8XksKYGKEaTIV7ch53q0MYzSSBJAg6EMQsZbSbiFiPCzjCHiSwkBoFCeQ3xXH5uOZcFIXEpj3YENPaZnup46ccsKZ1uLmNrFWzeK1pJrUKPmusT8fXk/I91nnd+UbIg3wm1FFJ1S0wJWEzURJZn45NUj5SE9ckvtfznKtlLRDFgUv2taGhIjLxLNRHLltKbJyzR0CwXlgQCEKBwblqZFspzPCRC0KlMHOW4F4UBeBznSAfF5LCmBihGkyFe3Ied6tDGM0kgSQIOhDELGW0m4hYjws4wh4ksJAaBQnkN8Vx+bjmXBSFxKY92BDT2mZ7qeOnHLCmdbi5jaxVs3itaSa1Cj5rrE/H15PyPdZ53flGyIN8//vkQAAACWtJSunve2qm6SldPe9tXHk7LaxnbYuPJ2W1jO2xD1jUbjbZRTptWgcuCcRioeq8fYBmaU08CLiNSJVnjsRjHidsKbemuLHeu0idJZn/DXmaHLWz5qQbOaKRhqZdOMKW8y0iTkZlIcROehRvxmVoOs2ipRgYJLC2hHQlgmQmTWQhaAMF8g5kGqXY5EPjGs8NlQ5YmqR8+ziOsucNgOY0l25TxaUZp8X3A1H24a+ZPD9K7raMTNr5T/9/MZVMJRmgrSwUt8///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////+HrGo3G2yinTatA5cE4jFQ9V4+wDM0pp4EXEakSrPHYjGPE7YU29NcWO9dpE6SzP+GvM0OWtnzUg2c0UjDUy6cYUt5lpEnIzKQ4ic9CjfjMrQdZtFSjAwSWFtCOhLBMhMmshC0AYL5BzINUuxyIfGNZ4bKhyxNUj59nEdZc4bAcxpLtyni0ozT4vuBqPtw18yeH6V3W0YmbXyn/7+YyqYSjNBWlgpb5ydmEy422XbgxzLWToOvBcQmJdEF0HGKFcla3G6exh82reOjGcMakRvDMWbHHJZzcjkqdayzDPM0tC+NVLFJjXl74KkckuujW/kTlk5SSiSt/BiJiAQtukW0+3lZs3+Z37sBNYfyIQmQpjwAsInQXsXSW7MBJzO0U0gmQGK2IDJekKKgIJB0kwKLmQkZma+b/Fm7oZjoaCiN+26LrYmhwMEBjEAomBTEyMHDRjgguMu+3KnzVvTXgguAYaGmFh5iYuCh9IxakUiduMNYZI8kEPxKWttPnMJZSSBga67e4xGIxLDH7J2YTLjbZduDHMtZOg68FxCYl0QXQcYoVyVrcbp7GHzat46MZwxqRG8MxZscclnNyOSp1rLMM8zS0L41UsUmNeXvgqRyS66Nb+ROWTlJKJK38GImIBC26RbT7eVmzf5nfuwE1h/IhCZCmPACwidBexdJbswEnM7RTSCZAYrYgMl6QoqAgkHSTAouZCRmZr5v8WbuhmOhoKI37boutiaHAwQGMQCiYFMTIwcNGOCC4y77cqfNW9NeCC4BhoaYWHmJi4KH0jFqRSJ24w1hkjyQQ/Epa20+cwllJIGBrrt7jEYjEsMfs//vkQAAADH9QTXtZ02bW6gmvazps01E5P+zmjYJqJyf9nNGwJnhjI2ImkkAoECWRgAIoKKzBhmZnS5uDCKxVDOiIRRhqRE+jzQ4elStyHZJu3MxQZGPPYatnIxLZybpKJ11AWv1TWmX1QdlUupa0MuRTvMjOcq0TmH9gx+qa1elcQrDBswwyONBy1lWl92tBr6MYDIv2KXuNLZmJ9+lplAAFXWswLhQXO8lMaet6wxYHDon2LVquOM5WnnfODuYcXVWq1mBV2M3ROFgagCmSI6OY6IMCBbzKHIbjTKpbKWWwoKAV0OHD8gbqpqShTFA8K0BKpokyyBtU2Tf//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////kzwxkbETSSAUCBLIwAEUFFZgwzMzpc3BhFYqhnREIow1IifR5ocPSpW5Dsk3bmYoMjHnsNWzkYls5N0lE66gLX6prTL6oOyqXUtaGXIp3mRnOVaJzD+wY/VNavSuIVhg2YYZHGg5ayrS+7Wg19GMBkX7FL3GlszE+/S0ygACrrWYFwoLneSmNPW9YYsDh0T7Fq1XHGcrTzvnB3MOLqrVazAq7GbonCwNQBTJEdHMdEGBAt5lDkNxplUtlLLYUFAK6HDh+QN1U1JQpigeFaAlU0SZZA2qbJtu3thH6U8nhKoRh2GELpIjLTGC8AKTEKimY4MQ3MQo6lfCQggGPvCNBF40Mx2uK0c/ev7xlWVL3AwR8LP/z/1SymmYSTYTIedARIuIqU7BaQAIHBQyZM/2coi5w+tX0zRYmwABUJ1MzxsZHmeeiWgZUEXnRSN+nSEBALPSIkOkXLpRHQWUBlUSOOEVIqSy9iNZrfzodtSzox5aZu3thH6U8nhKoRh2GELpIjLTGC8AKTEKimY4MQ3MQo6lfCQggGPvCNBF40Mx2uK0c/ev7xlWVL3AwR8LP/z/1SymmYSTYTIedARIuIqU7BaQAIHBQyZM/2coi5w+tX0zRYmwABUJ1MzxsZHmeeiWgZUEXnRSN+nSEBALPSIkOkXLpRHQWUBlUSOOEVIqSy9iNZrfzodtSzox5aY//vkQAAADfJNz2s5y2SoybntZzlsk001RezqjZJppqi9nVGyf+1c+TaSJUCUNpKogCDAWMPMkoNEsxTFStOlMPFykN+w3YQmJJogl8ioCMjGBZn72/392ZzOGSQMzSH/llmD8//V/USSUEoZNcrS2p/9/sAAVMiBr6qc///8ZgEFy3vef/6q2H3FDhGuv+F8/HlJX/KYBM4PBh3Du9f+eVA/IVKGrX+jMFSiYo68dkz52UnYTa5lazr6avybkkB3//eWM/NiR1XJdifUZ//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////f+1c+TaSJUCUNpKogCDAWMPMkoNEsxTFStOlMPFykN+w3YQmJJogl8ioCMjGBZn72/392ZzOGSQMzSH/llmD8//V/USSUEoZNcrS2p/9/sAAVMiBr6qc///8ZgEFy3vef/6q2H3FDhGuv+F8/HlJX/KYBM4PBh3Du9f+eVA/IVKGrX+jMFSiYo68dkz52UnYTa5lazr6avybkkB3//eWM/NiR1XJdifUZWIiFNIZI22S6CgS25AVAMkSGW6IJgUCsPJEdwZ22+FvXw+09IWndhWcQRjASV6RhTmRf/6kH6IRLJcfich//y/V0u+jB5OECOq15iCygplhMc79hZ4DSIiX+ZkcAIgCzSBunzp9ljPAYYaMBJbepZwSABgiCIKkYmSSGdMTYMaB7xb2WyIoQnljNFIR8/TOhyYGRADCNSgFyyusREKaQyRtsl0FAltyAqAZIkMt0QTAoFYeSI7gztt8Levh9p6QtO7Cs4gjGAkr0jCnMi//1IP0QiWS4/E5D//l+rpd9GDycIEdVrzEFlBTLCY537CzwGkREv8zI4ARAFmkDdPnT7LGeAww0YCS29SzgkADBEEQVIxMkkM6YmwY0D3i3stkRQhPLGaKQj5+mdDkwMiAGEalALllc//vkQAAADmJNUXs0m2SfSaovZpNskwUxO+zmjZpgpid9nNGzaZmFNIQ23IS7iImYgIvoXYQGm2GdMqaRf6IoIjIiUlgkuQ8CAQCRK5OAPBgNbhtlMupeeY6CZUSQ0WVUvx8ANERGqRNiPSeNkXY2JwCMyJGpFSmVE2RUkdDrAalADGKP84URCcFfk4gVnbTJ9RsAsACYiXb+YEeGbElKrprSfOkYcAkIg30CBkBNYgoXTFrWJgCsSBDaKAX4JJN37ea6/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////9pmYU0hDbchLuIiZiAi+hdhAabYZ0yppF/oigiMiJSWCS5DwIBAJErk4A8GA1uG2Uy6l55joJlRJDRZVS/HwA0REapE2I9J42RdjYnAIzIkakVKZUTZFSR0OsBqUAMYo/zhREJwV+TiBWdtMn1GwCwAJiJdv5gR4ZsSUqumtJ86RhwCQiDfQIGQE1iChdMWtYmAKxIENooBfgkk3ft5rriHaUI2IqkiCoAwN4IyCAVVTJsKAEYgcKx3SqIHDnP/Hk2nHd5nSCGcFBVc6WipsZJNkhLnQYUGu7Sco///3rBbBQ/Wmi4aJ102IOEJEl2On/usi4KDlP9c6PwNiQRFlnyZRemibGwC48DbrAt6KKmV3MRjwFzYhUipAtkuUyBhsZEn/FkuouEOJdJBeUwsbAJBDjTE9jYc3EO0oRsRVJEFQBgbwRkEAqqmTYUAIxA4VjulUQOHOf+PJtOO7zOkEM4KCq50tFTYySbJCXOgwoNd2k5R///vWC2Ch+tNFw0TrpsQcISJLsdP/dZFwUHKf650fgbEgiLLPkyi9NE2NgFx4G3WBb0UVMruYjHgLmxCpFSBbJcpkDDYyJP+LJdRcIcS6SC8phY2ASCHGmJ7Gw5s//vkQAAADEpMzus4y2SnSZndZxlslrUvMazjLZrWpeY1nGWz218TpdSaAdrLmZM1n1VEPGfw8lyX5pkqTgEs/jWzdyX0n/XKtRpLeWo7LbHOylrSmTDyP8o2/WX/++5y4QIV/KZqTcy/fKkpGRwCZcs4Wuf+eFxpBhAIVSit3/7+e6dlASEoznzHfd71SsLDnXTk3//P//20dl1+1Zxwr25XhDjsBgDbUfMP+bmk9HGk0eflikQoIddCzFJkMoa2uctM41y0Rd/rd+N/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////9tfE6XUmgHay5mTNZ9VRDxn8PJcl+aZKk4BLP41s3cl9J/1yrUaS3lqOy2xzspa0pkw8j/KNv1l//vucuECFfymak3Mv3ypKRkcAmXLOFrn/nhcaQYQCFUord/+/nunZQEhKM58x33e9UrCw5105N//z//9tHZdftWccK9uV4Q47AYA21HzD/m5pPRxpNHn5YpEKCHXQsxSZDKGtrnLTONctEXf63fjdZIi4U0kgFAmfGlNX2bPfYOlZH5NLwtEOByzOktR7G9OfSMgD4KnuRy7CcP5fT1HDmpJOKA4A3e/P9Q5VUoQWiFV5d4c/8L8eMAVCSxuGZXj+q2TuKLmWIq0WGdnHLtDKIxFFgAdAdLw01F+7zpccK74gUEeFYUtZ1YvTw1ORyzUpoJLrVoYe5ekpelr8jjkZTCQdbV1KlbLnvXBDYJeyV4dMrVokiWDKntFRUVVmrEh+ahJe+eskRcKaSQCgTPjSmr7NnvsHSsj8ml4WiHA5ZnSWo9jenPpGQB8FT3I5dhOH8vp6jhzUknFAcAbvfn+ocqqUILRCq8u8Of+F+PGAKhJY3DMrx/VbJ3FFzLEVaLDOzjl2hlEYiiwAOgOl4aai/d50uOFd8QKCPCsKWs6sXp4anI5ZqU0El1q0MPcvSUvS1+RxyMphIOtq6lStlz3rghsEvZK8OmVq0SRLBlT2ioqKqzViQ/NQkvfM//vkQAAADABMzXnvw2isiZmvPfhtFvVFJ+xLDareqKT9iWG1vKnBEGVE5Wi4CnV6GECLo5rpQsjDUH0LVPr/3gS0PQTcHKYuIM0bf+FyWEPKIb1F6+30tElQ0xzmrWpYt9wmGw0TbUzvQ/Gudy5UUph6Ss5i0szkNx9ErkIBVYHCF0CpUuYxD27j6IUlYXwXM+bQKdPVdKynDVggdry+YbblHWcwRKayXqPM9SxiLPtBb5QzA1LqpbxnaWCoesVIjdsUsPWIFryudpok7O930p//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////vKnBEGVE5Wi4CnV6GECLo5rpQsjDUH0LVPr/3gS0PQTcHKYuIM0bf+FyWEPKIb1F6+30tElQ0xzmrWpYt9wmGw0TbUzvQ/Gudy5UUph6Ss5i0szkNx9ErkIBVYHCF0CpUuYxD27j6IUlYXwXM+bQKdPVdKynDVggdry+YbblHWcwRKayXqPM9SxiLPtBb5QzA1LqpbxnaWCoesVIjdsUsPWIFryudpok7O930pRJVxIkIWk0SpWb6xzZFKHKnYnPYtiDIy/1tWp0DYUOMwMO7vrPlonwwiB4pBiw7qTy6S46ycDfmXZxy33Uup2YNkk83zGxlyINamHrY/PyppM87StylrSnSZshUQPPy2SRWJRGCmdS1nLOYbW205kagaQ08pVk0KIODAjjO076/J9gzpfetSmQui+TwNet4bqy3czKq1LllGaC/DMgypZvOMx5wotg/uPcf5j/3X/fVpDO6mWPbn0iSriRIQtJolSs31jmyKUOVOxOexbEGRl/ratToGwocZgYd3fWfLRPhhEDxSDFh3Unl0lx1k4G/MuzjlvupdTswbJJ5vmNjLkQa1MPWx+flTSZ52lblLWlOkzZCogeflskisSiMFM6lrOWcw2ttpzI1A0hp5SrJoUQcGBHGdp31+T7BnS+9alMhdF8nga9bw3Vlu5mVVqXLKM0F+GZBlSzecZjzhRbB/ce4/zH/uv++rSGd1Mse3Po//vkQAAADHJdSWnvw2KqS6ktPfhsVjWBJee/DaLGsCS89+G0L/xTDlckbv5XfLUZh1n9ZRZyewtzNrd///kOEaEs8ev37wE9CTh4KvWv9ZsxJ9VrJN4b6jxsdx3lSRxe72z9uvvd2ff7J4maL/gZ/35kFRyKBazYS86VAomKXI92gzksPvo1xGVwEsXUh+IVp2tZ1cdGw52PbFzXN4X9dt57538Pznez2PMtWt81bqTFeTfcwlWH8n+2tb1lljzv63vfeW+a5hre9awtuqr////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////L/xTDlckbv5XfLUZh1n9ZRZyewtzNrd///kOEaEs8ev37wE9CTh4KvWv9ZsxJ9VrJN4b6jxsdx3lSRxe72z9uvvd2ff7J4maL/gZ/35kFRyKBazYS86VAomKXI92gzksPvo1xGVwEsXUh+IVp2tZ1cdGw52PbFzXN4X9dt57538Pznez2PMtWt81bqTFeTfcwlWH8n+2tb1lljzv63vfeW+a5hre9awtuqrE4mCNVRJJGi7iv8zabhfjsU7xOVNg3bbxqN/jwkUF2hjPH/ifF5EWXoTU4sX17+ipy/OZEXfXK9fl+pexh5iUG3q8vjNDO09mZhSun7uthx5QQ7MUahwwkeAo6m5AkCcwl0hkNqBWTrkdN5J6ZmJdzPdyNsCcrPv6zy5ruM/LKHv/z8qtWh5R/a5+fd0NLztjmcNYZdr5YflZpu27fPsXOUuH2bVatvvdfjhdrWs5/dywJxMEaqiSSNF3Ff5m03C/HYp3icqbBu23jUb/HhIoLtDGeP/E+LyIsvQmpxYvr39FTl+cyIu+uV6/L9S9jDzEoNvV5fGaGdp7MzCldP3dbDjygh2Yo1DhhI8BR1NyBIE5hLpDIbUCsnXI6byT0zMS7me7kbYE5Wff1nlzXcZ+WUPf/n5VatDyj+1z8+7oaXnbHM4awy7Xyw/KzTdt2+fYucpcPs2q1bfe6/HC7WtZz+7lg//vkQAAAC8hgSGnvw2itjAkNPfhtF1mBGaezDaLrMCM09mG0K1yckaTaZbhFZjOBclSbrI8VvVw9W8zx7S73eCwzKWmIet6xWiLhllfWv95nhb7j3K2r9nPGpfj0Tf2/z5dhyXT960+rSnulnWcLnijAYGb1HxVIaspWglWI6EHyN4Y66tC7LlNOc6tHJZGJbQav3Lk8/07ylnrWeOG5LSU1Dfy3bq/nnjb/f71u9jdw5Wu6x1z+3ea+5Wp9X/qXs894Xc8qbvea3+Pf1lzLn1cf//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8rXJyRpNpluEVmM4FyVJusjxW9XD1bzPHtLvd4LDMpaYh63rFaIuGWV9a/3meFvuPcrav2c8al+PRN/b/Pl2HJdP3rT6tKe6WdZwueKMBgZvUfFUhqylaCVYjoQfI3hjrq0LsuU05zq0clkYltBq/cuTz/TvKWetZ44bktJTUN/Ldur+eeNv9/vW72N3Dla7rHXP7d5r7lan1f+pezz3hdzypu95rf49/WXMufVxKtqjaSSQRThFMbDDuSVBK1X0ukXsV77Tq3KO3Oh5Hal6XXR3w6OVwKkaGkEF6d3UMC8Wo43Y5GOWqSHHgiFnWeUv3PahmRUbYoEg5z2ot8XLbkkOjC7Cgo2RVBcy1Y+xFq8cfuSSlo1eDXUpGQM9cp/WCQzXmpVS1exDfZ//+zzueeecp+9dqfKbG7+eOHavcrMuyzq01NjrG/8t5qtawp+T+OfbVN9iawpaTOvdqUVqmqTdTCjpL3f/oKtqjaSSQRThFMbDDuSVBK1X0ukXsV77Tq3KO3Oh5Hal6XXR3w6OVwKkaGkEF6d3UMC8Wo43Y5GOWqSHHgiFnWeUv3PahmRUbYoEg5z2ot8XLbkkOjC7Cgo2RVBcy1Y+xFq8cfuSSlo1eDXUpGQM9cp/WCQzXmpVS1exDfZ//+zzueeecp+9dqfKbG7+eOHavcrMuyzq01NjrG/8t5qtawp+T+OfbVN9iawpaTOvdqUVqmqTdTCjpL3f/o//vkQAAADRpVQ2nsY2KWyqhtPYxsVh1+f+el7YLDr8/89L2wrcCRKSaSScg+TQIMXI0jSQp9/2FDVC9rWZlolGQ5CM/Rl3rLlz2eOQEi00uXGR8urXa9LK2tzk9rWs4uxd9azM7ZKel4Rng6ACCqpVLKUEQOgiAUs1OQak2vazQqg1AiIq0xiOj6AyMj65y7LPzaZ2tVvzM2tZcu76rVrta1tazS63zabbXpm02tba1qyaC4gpIloaiGd//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////rcCRKSaSScg+TQIMXI0jSQp9/2FDVC9rWZlolGQ5CM/Rl3rLlz2eOQEi00uXGR8urXa9LK2tzk9rWs4uxd9azM7ZKel4Rng6ACCqpVLKUEQOgiAUs1OQak2vazQqg1AiIq0xiOj6AyMj65y7LPzaZ2tVvzM2tZcu76rVrta1tazS63zabbXpm02tba1qyaC4gpIloaiGdiHZWd3ckkSS3CdEpJ8TE7jZRCfZHTNBbH8RvNlGrhufxlGV1cNlGSqSaSaRYhIipYPlCNwZVcwtzW2N68uT9N43TCM0zDDL4c7PE3utsvTqHqFdGEO0jRAxyD7JQfinXS5XS+pFemjpLcbp3Hydhvn4f67Xm1ua2xvPxRubjClgXpfEKDJLi9L0/////////////3auM4vTNoUGFBklgQ4EkGFBhSwIbybbf1iwsLCwvEOys7u5JIkluE6JST4mJ3GyiE+yOmaC2P4jebKNXDc/jKMrq4bKMlUk0k0ixCRFSwfKEbgyq5hbmtsb15cn6bxumEZpmGGXw52eJvdbZenUPUK6MIdpGiBjkH2Sg/FOulyul9SK9NHSW43TuPk7DfPw/12vNrc1tjefijc3GFLAvS+IUGSXF6Xp/////////////u1cZxembQoMKDJLAhwJIMKDClgQ3k22/rFhYWFhc//vkQAAAD/wAS4AAAAmcgAlwAAABAAABLgAAACAAACXAAAAE////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////")
 
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_c6kru"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_qbfqv"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_x5q3x"]
+
 [node name="Credits" type="Control" unique_id=198189362]
 layout_mode = 3
 anchors_preset = 15
@@ -154,10 +160,28 @@ token 是我的骨架
 其实一个礼拜前刚开始学怎么使用 godot"
 autowrap_mode = 2
 
+[node name="Hidden" type="Label" parent="Dilute" unique_id=73878931]
+visible = false
+offset_left = -746.6666
+offset_top = 2293.3333
+offset_right = 1176.3334
+offset_bottom = 2666.6665
+theme_override_font_sizes/font_size = 148
+text = "或许在扮演ntr漫画中邻
+家大姐姐的角色"
+
+[node name="BlackTile" type="ColorRect" parent="Dilute" unique_id=911605289]
+visible = false
+offset_left = -240.0
+offset_top = 46.66656
+offset_right = 240.0
+offset_bottom = 153.33307
+rotation = -0.31764993
+color = Color(0, 0, 0, 1)
+
 [node name="Catkin" type="Sprite2D" parent="." unique_id=297271977]
 position = Vector2(464.00003, 240.00002)
 scale = Vector2(0.15, 0.15)
-texture = ExtResource("6_c6kru")
 
 [node name="Name" type="Label" parent="Catkin" unique_id=617078864]
 offset_left = -533.3333
@@ -180,6 +204,37 @@ text = "副程序兼部分文案
 还有未命名大陆
 第一次用除了rm以外的引擎做项目"
 autowrap_mode = 2
+
+[node name="CatkinBtn" type="Button" parent="Catkin" unique_id=1485033373]
+offset_left = -533.3335
+offset_top = -533.3335
+offset_right = 586.6665
+offset_bottom = 533.333
+pivot_offset = Vector2(0, 1080)
+theme_override_icons/icon = ExtResource("6_c6kru")
+theme_override_styles/normal = SubResource("StyleBoxEmpty_c6kru")
+theme_override_styles/pressed = SubResource("StyleBoxEmpty_qbfqv")
+theme_override_styles/hover = SubResource("StyleBoxEmpty_x5q3x")
+
+[node name="Hidden" type="Label" parent="Catkin" unique_id=1157417782]
+visible = false
+offset_left = -746.6668
+offset_top = 2293.3333
+offset_right = 159.99982
+offset_bottom = 2666.6665
+theme_override_font_sizes/font_size = 148
+text = "正在思考怎么把这段东西
+写得搞笑
+没错这个彩蛋是我加的"
+
+[node name="BlackTile" type="ColorRect" parent="Catkin" unique_id=1373532105]
+visible = false
+offset_left = -113.333534
+offset_top = 153.33324
+offset_right = 366.66647
+offset_bottom = 259.99976
+rotation = -0.116937056
+color = Color(0, 0, 0, 1)
 
 [node name="Midu" type="Sprite2D" parent="." unique_id=637712411]
 position = Vector2(784, 240.00002)
@@ -207,6 +262,24 @@ text = "策划和平衡师从安东尼，
 也许可以竞选最没用的岗位？"
 autowrap_mode = 2
 
+[node name="Hidden" type="Label" parent="Midu" unique_id=2032102003]
+visible = false
+offset_left = -746.6668
+offset_top = 2293.3333
+offset_right = 159.99982
+offset_bottom = 2666.6665
+theme_override_font_sizes/font_size = 148
+text = "想邀请霂弎在apex进行别
+样的碰碰车大战"
+
+[node name="BlackTile" type="ColorRect" parent="Midu" unique_id=753394127]
+visible = false
+offset_left = -340.00018
+offset_top = 19.999912
+offset_right = 291.06427
+offset_bottom = 142.97037
+color = Color(0, 0, 0, 1)
+
 [node name="M3" type="Sprite2D" parent="." unique_id=911756613]
 position = Vector2(1104, 240)
 scale = Vector2(0.15, 0.15)
@@ -218,7 +291,7 @@ offset_top = 586.6664
 offset_right = 533.3333
 offset_bottom = 853.3331
 theme_override_font_sizes/font_size = 241
-text = "霂东尼"
+text = "霂弎"
 horizontal_alignment = 1
 
 [node name="Introduction" type="Label" parent="M3" unique_id=1716895274]
@@ -227,9 +300,28 @@ offset_top = 853.333
 offset_right = 960.0
 offset_bottom = 1610.333
 theme_override_font_sizes/font_size = 148
-text = "【这段你们自己写吧好吗我就不自作主张去写了】
-"
+text = "策划兼部分文案
+擅长在后台偷偷挂着游戏摸鱼以及提供情绪价值
+熬夜但是白天起不来之人"
 autowrap_mode = 2
+
+[node name="Hidden" type="Label" parent="M3" unique_id=423663061]
+visible = false
+offset_left = -746.6668
+offset_top = 2293.3333
+offset_right = 159.99982
+offset_bottom = 2666.6665
+theme_override_font_sizes/font_size = 148
+text = "很擅长对左边这个b进行
+语言攻击"
+
+[node name="BlackTile" type="ColorRect" parent="M3" unique_id=1182590404]
+visible = false
+offset_left = -306.66684
+offset_top = -179.99998
+offset_right = 324.3976
+offset_bottom = -57.029526
+color = Color(0, 0, 0, 1)
 
 [node name="Hatori" type="Sprite2D" parent="." unique_id=1244079457]
 position = Vector2(1424, 232.00002)
@@ -259,6 +351,25 @@ text = "摸鱼的美术
 咕咕咕"
 autowrap_mode = 2
 
+[node name="Hidden" type="Label" parent="Hatori" unique_id=832107106]
+visible = false
+offset_left = -746.6668
+offset_top = 2293.3333
+offset_right = 159.99982
+offset_bottom = 2666.6665
+theme_override_font_sizes/font_size = 148
+text = "可能是每个活动都要有
+的一个状况外黎博利"
+
+[node name="BlackTile" type="ColorRect" parent="Hatori" unique_id=1635764731]
+visible = false
+offset_left = -300.00006
+offset_top = -106.666756
+offset_right = -13.814514
+offset_bottom = -44.77491
+rotation = -0.37524578
+color = Color(0, 0, 0, 1)
+
 [node name="GoodModel……" type="Label" parent="." unique_id=1943437137]
 layout_mode = 1
 anchors_preset = 5
@@ -276,3 +387,5 @@ text = "真正的主程→
 [connection signal="pressed" from="Quit" to="." method="_on_button_pressed"]
 [connection signal="button_down" from="DSH" to="." method="_on_dsh_button_down"]
 [connection signal="button_up" from="DSH" to="." method="_on_dsh_button_up"]
+[connection signal="button_down" from="Catkin/CatkinBtn" to="." method="_on_catkin_button_down"]
+[connection signal="button_up" from="Catkin/CatkinBtn" to="." method="_on_catkin_button_up"]
