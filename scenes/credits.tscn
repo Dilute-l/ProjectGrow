@@ -2,7 +2,13 @@
 
 [ext_resource type="Script" uid="uid://cdetxdr0ttydw" path="res://scenes/credits.gd" id="1_0bpdh"]
 [ext_resource type="Texture2D" uid="uid://1wdbiqk8egop" path="res://images/DSH.png" id="2_2fbfq"]
+[ext_resource type="Texture2D" uid="uid://ko3pv50hdsl0" path="res://images/background.png" id="2_ih6pn"]
 [ext_resource type="AudioStream" uid="uid://cr5v5bjjrmoll" path="res://audio/squ.mp3" id="3_8gwij"]
+[ext_resource type="Texture2D" uid="uid://d33ekvrvthjsm" path="res://images/Head/Dilute.jpg" id="5_7lgdl"]
+[ext_resource type="Texture2D" uid="uid://dg8om4h2cdgxl" path="res://images/Head/Catkin.jpg" id="6_c6kru"]
+[ext_resource type="Texture2D" uid="uid://dx8hoobtper7r" path="res://images/Head/Midu.jpg" id="7_qbfqv"]
+[ext_resource type="Texture2D" uid="uid://bkupmchwh14bt" path="res://images/Head/M3.jpg" id="8_x5q3x"]
+[ext_resource type="Texture2D" uid="uid://b5qi6qmjyh03f" path="res://images/Head/Hatori.jpg" id="9_nmdnh"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_vkqoe"]
 
@@ -53,19 +59,31 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_0bpdh")
 
-[node name="Label" type="Label" parent="." unique_id=519618390]
-layout_mode = 0
-offset_left = 256.0
-offset_top = 240.0
-offset_right = 1431.0
-offset_bottom = 384.0
+[node name="Background" type="Sprite2D" parent="." unique_id=749108081]
+modulate = Color(0.24943629, 0.24943629, 0.24943626, 1)
+position = Vector2(801, 450)
+scale = Vector2(0.24347337, 0.24335325)
+texture = ExtResource("2_ih6pn")
+
+[node name="Title" type="Label" parent="." unique_id=519618390]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -304.0
+offset_top = 24.0
+offset_right = 302.0
+offset_bottom = 168.0
+grow_horizontal = 2
 theme_override_font_sizes/font_size = 101
-text = "这里暂时还什么都没有……"
+text = "登场人物介绍"
 
 [node name="Quit" type="Button" parent="." unique_id=1936833717]
 layout_mode = 0
-offset_right = 214.0
-offset_bottom = 128.0
+offset_left = -8.0
+offset_top = -8.0
+offset_right = 208.0
+offset_bottom = 120.0
 theme_override_font_sizes/font_size = 72
 theme_override_styles/normal = SubResource("StyleBoxEmpty_vkqoe")
 theme_override_styles/pressed = SubResource("StyleBoxEmpty_co6qv")
@@ -108,6 +126,143 @@ volume_db = 10.714
 [node name="BIGFATFISH2" type="AudioStreamPlayer" parent="." unique_id=1861593814]
 stream = SubResource("AudioStreamMP3_0ctdu")
 volume_db = 10.714
+
+[node name="Dilute" type="Sprite2D" parent="." unique_id=900665543]
+position = Vector2(144, 240.00002)
+scale = Vector2(0.15, 0.15)
+texture = ExtResource("5_7lgdl")
+
+[node name="Name" type="Label" parent="Dilute" unique_id=1008756805]
+offset_left = -533.3333
+offset_top = 586.6664
+offset_right = 533.3333
+offset_bottom = 853.3331
+theme_override_font_sizes/font_size = 241
+text = "Dilute"
+horizontal_alignment = 1
+
+[node name="Introduction" type="Label" parent="Dilute" unique_id=102313186]
+offset_left = -746.6666
+offset_top = 853.33325
+offset_right = 960.0
+offset_bottom = 1458.3333
+theme_override_font_sizes/font_size = 148
+text = "【这段你们自己写吧好吗我就不自作主张去写了】
+"
+autowrap_mode = 2
+
+[node name="Catkin" type="Sprite2D" parent="." unique_id=297271977]
+position = Vector2(464.00003, 240.00002)
+scale = Vector2(0.15, 0.15)
+texture = ExtResource("6_c6kru")
+
+[node name="Name" type="Label" parent="Catkin" unique_id=617078864]
+offset_left = -533.3333
+offset_top = 586.6664
+offset_right = 533.3333
+offset_bottom = 853.3331
+theme_override_font_sizes/font_size = 241
+text = "柳絮"
+horizontal_alignment = 1
+
+[node name="Introduction" type="Label" parent="Catkin" unique_id=1621084750]
+offset_left = -746.667
+offset_top = 853.333
+offset_right = 960.0
+offset_bottom = 1458.333
+theme_override_font_sizes/font_size = 148
+text = "副程序兼部分文案
+压榨大肥鱼压榨的很开心
+打算在这里宣传哈集杯
+还有未命名大陆
+第一次用除了rm以外的引擎做项目"
+autowrap_mode = 2
+
+[node name="Midu" type="Sprite2D" parent="." unique_id=637712411]
+position = Vector2(784, 240.00002)
+scale = Vector2(0.15, 0.15)
+texture = ExtResource("7_qbfqv")
+
+[node name="Name" type="Label" parent="Midu" unique_id=883414854]
+offset_left = -533.3333
+offset_top = 586.6664
+offset_right = 533.3333
+offset_bottom = 853.3331
+theme_override_font_sizes/font_size = 241
+text = "安东米"
+horizontal_alignment = 1
+
+[node name="Introduction" type="Label" parent="Midu" unique_id=252566776]
+offset_left = -746.667
+offset_top = 853.333
+offset_right = 960.0
+offset_bottom = 1610.333
+theme_override_font_sizes/font_size = 148
+text = "【这段你们自己写吧好吗我就不自作主张去写了】
+"
+autowrap_mode = 2
+
+[node name="M3" type="Sprite2D" parent="." unique_id=911756613]
+position = Vector2(1104, 240)
+scale = Vector2(0.15, 0.15)
+texture = ExtResource("8_x5q3x")
+
+[node name="Name" type="Label" parent="M3" unique_id=1771516005]
+offset_left = -533.3333
+offset_top = 586.6664
+offset_right = 533.3333
+offset_bottom = 853.3331
+theme_override_font_sizes/font_size = 241
+text = "霂东尼"
+horizontal_alignment = 1
+
+[node name="Introduction" type="Label" parent="M3" unique_id=1716895274]
+offset_left = -746.667
+offset_top = 853.333
+offset_right = 960.0
+offset_bottom = 1610.333
+theme_override_font_sizes/font_size = 148
+text = "【这段你们自己写吧好吗我就不自作主张去写了】
+"
+autowrap_mode = 2
+
+[node name="Hatori" type="Sprite2D" parent="." unique_id=1244079457]
+position = Vector2(1424, 232.00002)
+scale = Vector2(0.15, 0.15)
+texture = ExtResource("9_nmdnh")
+
+[node name="Name" type="Label" parent="Hatori" unique_id=354343515]
+offset_left = -533.3333
+offset_top = 586.6664
+offset_right = 533.3333
+offset_bottom = 853.3331
+theme_override_font_sizes/font_size = 241
+text = "逸只鸽子"
+horizontal_alignment = 1
+
+[node name="Introduction" type="Label" parent="Hatori" unique_id=551298696]
+offset_left = -746.667
+offset_top = 853.333
+offset_right = 960.0
+offset_bottom = 1610.333
+theme_override_font_sizes/font_size = 148
+text = "【这段你们自己写吧好吗我就不自作主张去写了】
+"
+autowrap_mode = 2
+
+[node name="GoodModel……" type="Label" parent="." unique_id=1943437137]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = 344.0
+offset_top = 802.0
+offset_right = 590.0
+offset_bottom = 904.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 41
+text = "真正的主程→
+好模型……"
 
 [connection signal="pressed" from="Quit" to="." method="_on_button_pressed"]
 [connection signal="button_down" from="DSH" to="." method="_on_dsh_button_down"]
