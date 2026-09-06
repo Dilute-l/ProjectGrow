@@ -147,8 +147,11 @@ offset_top = 853.33325
 offset_right = 960.0
 offset_bottom = 1458.3333
 theme_override_font_sizes/font_size = 148
-text = "【这段你们自己写吧好吗我就不自作主张去写了】
-"
+text = "虚假的主程
+token 是我的骨架
+红牛与咖啡是我的血肉
+真正在生长的是屎山代码
+其实一个礼拜前刚开始学怎么使用 godot"
 autowrap_mode = 2
 
 [node name="Catkin" type="Sprite2D" parent="." unique_id=297271977]
