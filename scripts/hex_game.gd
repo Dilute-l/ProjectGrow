@@ -183,6 +183,7 @@ const GUI_SCENE := preload("res://scenes/gui.tscn")
 const GUI_SPEED_NODE := "Speed"     # gui.tscn 中倍速按钮节点名（icon 初始为 1x.png）
 const GUI_PAUSE_NODE := "Pause"     # gui.tscn 中暂停按钮节点名（icon 初始为 pause.png）
 const GUI_SETTINGS_NODE := "Settings"  # gui.tscn 中设置按钮节点名（点击 = 呼出 ESC 暂停/设置菜单）
+const GUI_RESET_NODE := "Reset"        # gui.tscn 中“重置”按钮节点名（icon 为 Reset.png）
 const ICON_1X := preload("res://images/GUI/1x.png")
 const ICON_2X := preload("res://images/GUI/2x.png")
 const ICON_4X := preload("res://images/GUI/4x.png")
@@ -198,6 +199,7 @@ var game_controls_layer: CanvasLayer
 var pause_button: Button
 var speed_button: Button
 var settings_button: Button
+var reset_button: Button
 # 顶部中央关卡指示：主线显示“第 X 关”；通关主线后（cleared_levels >= MAIN_LINE_LEVELS）进入无尽模式
 const MAIN_LINE_LEVELS := 11   # 主线关卡数（level0~level10 共 11 个）
 var level_indicator_layer: CanvasLayer
@@ -859,6 +861,9 @@ func _build_game_controls() -> void:
 	settings_button = gui.get_node_or_null(GUI_SETTINGS_NODE) as Button
 	if settings_button != null:
 		settings_button.pressed.connect(_on_settings_pressed)
+	reset_button = gui.get_node_or_null(GUI_RESET_NODE) as Button
+	if reset_button != null:
+		reset_button.pressed.connect(_on_gui_reset_pressed)
 
 	# 道具栏（独立面板）：放在键位提示（GUI 场景里的 Label）正下方，避免遮挡
 	var panel := PanelContainer.new()
@@ -1136,6 +1141,20 @@ func _on_settings_pressed() -> void:
 	if reward_layer != null and reward_layer.visible:
 		return
 	_handle_escape()
+
+## GUI Reset 按钮：与 ESC 暂停菜单“重置”一致——重置当前关卡并退还本关已消耗的道具，随后自动暂停
+func _on_gui_reset_pressed() -> void:
+	# 教程播放 / 暂停菜单 / 词条总览 / 奖励界面打开时不响应（与设置按钮一致）
+	if tutorial_active:
+		return
+	if pause_menu_open:
+		return
+	if buff_overview_open:
+		return
+	if reward_layer != null and reward_layer.visible:
+		return
+	deploy.reset(true)   # 退还本关已消耗的道具
+	_set_paused(true)    # 重置后自动暂停，等待重新部署
 
 func _unhandled_input(event: InputEvent) -> void:
 	if reward_layer != null and reward_layer.visible:

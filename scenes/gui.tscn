@@ -2,6 +2,7 @@
 
 [ext_resource type="Texture2D" uid="uid://d0ljo2qsae3yv" path="res://images/GUI/pause.png" id="1_efmwq"]
 [ext_resource type="Texture2D" uid="uid://bi7uvjl2xf6kh" path="res://images/GUI/Settings.png" id="1_mfius"]
+[ext_resource type="Texture2D" uid="uid://njysqvubyc87" path="res://images/GUI/Reset.png" id="3_ynd5l"]
 
 [sub_resource type="CompressedTexture2D" id="CompressedTexture2D_mfius"]
 load_path = "res://.godot/imported/1x.png-883c2ba94a131fe0d3497a4ed457b00e.ctex"
@@ -75,3 +76,21 @@ offset_right = 187.0
 offset_bottom = 253.0
 theme_override_font_sizes/font_size = 60
 text = "ESC"
+
+[node name="Reset" type="Button" parent="." unique_id=1515744331]
+layout_mode = 0
+offset_left = 256.0
+offset_top = 64.0
+offset_right = 314.0
+offset_bottom = 122.0
+scale = Vector2(2, 2)
+theme_override_icons/icon = ExtResource("3_ynd5l")
+
+[node name="R" type="Label" parent="." unique_id=965249442]
+visible = false
+layout_mode = 0
+offset_left = 296.0
+offset_top = 192.0
+offset_right = 335.0
+offset_bottom = 253.0
+theme_override_font_sizes/font_size = 60
