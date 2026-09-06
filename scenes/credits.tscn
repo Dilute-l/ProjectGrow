@@ -192,7 +192,7 @@ offset_top = 586.6664
 offset_right = 533.3333
 offset_bottom = 853.3331
 theme_override_font_sizes/font_size = 241
-text = "安东米"
+text = "米度"
 horizontal_alignment = 1
 
 [node name="Introduction" type="Label" parent="Midu" unique_id=252566776]
@@ -201,8 +201,8 @@ offset_top = 853.333
 offset_right = 960.0
 offset_bottom = 1610.333
 theme_override_font_sizes/font_size = 148
-text = "【这段你们自己写吧好吗我就不自作主张去写了】
-"
+text = "策划和平衡师从安东尼，
+制作期间apex段位遭受天谴掉了下来"
 autowrap_mode = 2
 
 [node name="M3" type="Sprite2D" parent="." unique_id=911756613]
