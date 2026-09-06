@@ -1,0 +1,58 @@
+[gd_scene format=3 uid="uid://cyfit1mr2vti0"]
+
+[ext_resource type="Texture2D" uid="uid://d0ljo2qsae3yv" path="res://images/GUI/pause.png" id="1_efmwq"]
+
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_mfius"]
+load_path = "res://.godot/imported/1x.png-883c2ba94a131fe0d3497a4ed457b00e.ctex"
+
+[node name="GUI" type="Control" unique_id=1209371140]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Speed" type="Button" parent="." unique_id=281450862]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -368.0
+offset_top = 64.0
+offset_right = -310.0
+offset_bottom = 122.0
+grow_horizontal = 0
+scale = Vector2(2, 2)
+theme_override_icons/icon = SubResource("CompressedTexture2D_mfius")
+
+[node name="Pause" type="Button" parent="." unique_id=291874660]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -176.0
+offset_top = 64.0
+offset_right = -118.0
+offset_bottom = 122.0
+grow_horizontal = 0
+scale = Vector2(2, 2)
+theme_override_icons/icon = ExtResource("1_efmwq")
+
+[node name="Label" type="Label" parent="." unique_id=1499526453]
+layout_mode = 0
+offset_left = 1264.0
+offset_top = 192.0
+offset_right = 1310.0
+offset_bottom = 253.0
+theme_override_font_sizes/font_size = 60
+text = "F"
+
+[node name="Label2" type="Label" parent="." unique_id=1396382611]
+layout_mode = 0
+offset_left = 1392.0
+offset_top = 192.0
+offset_right = 1579.0
+offset_bottom = 253.0
+theme_override_font_sizes/font_size = 60
+text = "SPACE"

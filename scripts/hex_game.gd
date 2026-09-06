@@ -178,6 +178,18 @@ var _pending_unique_effect := ""
 
 # 暂停与倍速（UI 在右上角）
 const SPEED_LEVELS: Array[float] = [1.0, 2.0, 4.0]
+# 右上角 GUI 场景与图标（scenes/gui.tscn / images/GUI）：倍速档位 1x/2x/4x，暂停/继续
+const GUI_SCENE := preload("res://scenes/gui.tscn")
+const GUI_SPEED_NODE := "Speed"     # gui.tscn 中倍速按钮节点名（icon 初始为 1x.png）
+const GUI_PAUSE_NODE := "Pause"     # gui.tscn 中暂停按钮节点名（icon 初始为 pause.png）
+const ICON_1X := preload("res://images/GUI/1x.png")
+const ICON_2X := preload("res://images/GUI/2x.png")
+const ICON_4X := preload("res://images/GUI/4x.png")
+const ICON_PAUSE := preload("res://images/GUI/pause.png")
+const ICON_CONTINUE := preload("res://images/GUI/continue.png")
+# 道具栏（右上角 · 键位提示下方）：整体放大倍数（约 1.5~2 倍，取 1.75）、与键位标签的间距
+const ITEM_BAR_SCALE := 1.75
+const ITEM_BAR_GAP := 12.0
 var paused := false
 var speed_index := 0
 var game_speed := 1.0
@@ -321,6 +333,7 @@ func _process(delta: float) -> void:
 			var burst := n.burst_cells()
 			if not burst.is_empty():
 				spread.burst_from(cell, burst, n.mode(), str(n.config.get("id", "")), n.spawn_time)
+				$SpreadSE.play()   # 自爆核心到期爆发：复用蔓延音效播放爆发声
 			# 核心耗尽：从 units 移除、节点变暗保留（污染地块仍在）
 			units.erase(cell)
 			n.mark_corpse()
@@ -786,6 +799,19 @@ func _build_game_controls() -> void:
 	game_controls_layer.layer = 10
 	add_child(game_controls_layer)
 
+	# 整体挂载 GUI 场景：倍速 / 暂停两个图标按钮（位置、缩放以场景内摆放为准）。
+	# 根 Control 铺满屏幕但不拦截鼠标，只有两个按钮接收点击。
+	var gui: Control = GUI_SCENE.instantiate()
+	gui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	game_controls_layer.add_child(gui)
+	speed_button = gui.get_node_or_null(GUI_SPEED_NODE) as Button
+	pause_button = gui.get_node_or_null(GUI_PAUSE_NODE) as Button
+	if speed_button != null:
+		speed_button.pressed.connect(_cycle_speed)
+	if pause_button != null:
+		pause_button.pressed.connect(_toggle_pause)
+
+	# 道具栏（独立面板）：放在键位提示（GUI 场景里的 Label）正下方，避免遮挡
 	var panel := PanelContainer.new()
 	game_controls_layer.add_child(panel)
 
@@ -800,34 +826,36 @@ func _build_game_controls() -> void:
 	vbox.add_theme_constant_override("separation", 6)
 	margin.add_child(vbox)
 
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 8)
-	vbox.add_child(hbox)
-
-	speed_button = Button.new()
-	speed_button.text = "1x"
-	speed_button.pressed.connect(_cycle_speed)
-	hbox.add_child(speed_button)
-
-	pause_button = Button.new()
-	pause_button.text = "暂停"
-	pause_button.pressed.connect(_toggle_pause)
-	hbox.add_child(pause_button)
-
-	# 道具栏（倍速与暂停下方）
 	if items != null:
 		items.build_bar(vbox)
 
+	# 顶到 GUI 场景里键位提示标签的下缘之下：取所有 Label 下缘的最大值 + 间距
+	var label_bottom := 0.0
+	for c in gui.get_children():
+		if c is Label:
+			label_bottom = maxf(label_bottom, c.offset_bottom)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 16)
+	panel.offset_top = label_bottom + ITEM_BAR_GAP
+	# 等一帧让容器按内容完成布局，再以右上角为支点整体放大（右缘仍贴边、向下向左延展）
+	_apply_item_bar_layout(panel)
+
+## 布局稳定后把道具栏放大到 ITEM_BAR_SCALE 倍：以右上角为缩放支点，避免向右越出屏幕
+func _apply_item_bar_layout(panel: PanelContainer) -> void:
+	await get_tree().process_frame
+	if panel == null or not is_instance_valid(panel):
+		return
+	panel.pivot_offset = Vector2(panel.size.x, 0.0)
+	panel.scale = Vector2.ONE * ITEM_BAR_SCALE
 
 func _toggle_pause() -> void:
 	_set_paused(not paused)
 
-## 设置暂停状态，并同步右上角按钮与状态栏文案
+## 设置暂停状态，并同步右上角按钮图标与状态栏文案
 func _set_paused(on: bool) -> void:
 	paused = on
 	if pause_button != null:
-		pause_button.text = "继续" if paused else "暂停"
+		# 图标随状态切换：运行时显示 pause（点击暂停），暂停时显示 continue（点击继续）
+		pause_button.add_theme_icon_override("icon", ICON_CONTINUE if paused else ICON_PAUSE)
 	if paused:
 		hud.set_status("已暂停（空格继续 / F 调速；仍可部署核心）")
 	else:
@@ -842,7 +870,17 @@ func _cycle_speed() -> void:
 	speed_index = (speed_index + 1) % SPEED_LEVELS.size()
 	game_speed = SPEED_LEVELS[speed_index]
 	if speed_button != null:
-		speed_button.text = str(int(game_speed)) + "x"
+		speed_button.add_theme_icon_override("icon", _speed_icon())
+
+## 当前倍速档位对应的图标（1x/2x/4x）
+func _speed_icon() -> Texture2D:
+	match speed_index:
+		1:
+			return ICON_2X
+		2:
+			return ICON_4X
+		_:
+			return ICON_1X
 
 # ---------------------------------------------------------------------------
 # 音量设置（音频总线：Master / Music / SFX）
