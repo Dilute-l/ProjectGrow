@@ -202,7 +202,9 @@ offset_right = 960.0
 offset_bottom = 1610.333
 theme_override_font_sizes/font_size = 148
 text = "策划和平衡师从安东尼，
-制作期间apex段位遭受天谴掉了下来"
+文案深得猴子打字机精髓，
+制作期间不务正业打apex遭受天谴导致段位掉了下来
+也许可以竞选最没用的岗位？"
 autowrap_mode = 2
 
 [node name="M3" type="Sprite2D" parent="." unique_id=911756613]
