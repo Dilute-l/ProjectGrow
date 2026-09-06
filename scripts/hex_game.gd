@@ -182,6 +182,7 @@ const SPEED_LEVELS: Array[float] = [1.0, 2.0, 4.0]
 const GUI_SCENE := preload("res://scenes/gui.tscn")
 const GUI_SPEED_NODE := "Speed"     # gui.tscn 中倍速按钮节点名（icon 初始为 1x.png）
 const GUI_PAUSE_NODE := "Pause"     # gui.tscn 中暂停按钮节点名（icon 初始为 pause.png）
+const GUI_SETTINGS_NODE := "Settings"  # gui.tscn 中设置按钮节点名（点击 = 呼出 ESC 暂停/设置菜单）
 const ICON_1X := preload("res://images/GUI/1x.png")
 const ICON_2X := preload("res://images/GUI/2x.png")
 const ICON_4X := preload("res://images/GUI/4x.png")
@@ -196,13 +197,15 @@ var game_speed := 1.0
 var game_controls_layer: CanvasLayer
 var pause_button: Button
 var speed_button: Button
+var settings_button: Button
 # 暂停菜单（ESC 打开）：变暗遮罩 + 继续游戏 / 重置 / 编辑模式 / 回到主菜单
 var pause_menu_open := false
 var pause_menu_layer: CanvasLayer
 var edit_mode_button: Button   # 暂停菜单中的“编辑模式/游玩模式”切换按钮
 # 音量设置（ESC 暂停菜单中的滑块；0.0 ~ 1.0）
 var volume_master := 1.0
-var volume_music := 1.0
+# 音乐默认 -10dB（与 VolumeSettings.MUSIC_DEFAULT 一致；实际值启动时由 volume.cfg 决定）
+var volume_music := 0.3162277660168379
 var volume_sfx := 1.0
 
 # 部署费用条（位于核心类型选择区上方）
@@ -810,6 +813,9 @@ func _build_game_controls() -> void:
 		speed_button.pressed.connect(_cycle_speed)
 	if pause_button != null:
 		pause_button.pressed.connect(_toggle_pause)
+	settings_button = gui.get_node_or_null(GUI_SETTINGS_NODE) as Button
+	if settings_button != null:
+		settings_button.pressed.connect(_on_settings_pressed)
 
 	# 道具栏（独立面板）：放在键位提示（GUI 场景里的 Label）正下方，避免遮挡
 	var panel := PanelContainer.new()
@@ -883,42 +889,27 @@ func _speed_icon() -> Texture2D:
 			return ICON_1X
 
 # ---------------------------------------------------------------------------
-# 音量设置（音频总线：Master / Music / SFX）
+# 音量设置（音频总线：Master / Music / SFX；数值读写统一走 VolumeSettings）
 # ---------------------------------------------------------------------------
-const VOLUME_PATH := "user://volume.cfg"
 
 ## 确保 Music / SFX 音频总线存在（Master 恒为 0 号），并把场景内的 BGM / SpreadSE 挂到对应总线
 func _ensure_audio_buses() -> void:
-	_ensure_audio_bus("Music")
-	_ensure_audio_bus("SFX")
+	VolumeSettings.ensure_buses()
 	if has_node("BGM"):
 		$BGM.bus = "Music"
 	if has_node("SpreadSE"):
 		$SpreadSE.bus = "SFX"
 
-func _ensure_audio_bus(bus_name: String) -> void:
-	if AudioServer.get_bus_index(bus_name) != -1:
-		return
-	AudioServer.add_bus()
-	var idx := AudioServer.bus_count - 1
-	AudioServer.set_bus_name(idx, bus_name)
-	AudioServer.set_bus_send(idx, "Master")
-
-## 从 user://volume.cfg 读取音量并应用（缺失则用默认 1.0）
+## 从 user://volume.cfg 读取音量（缺失键用默认值：音乐默认 -10dB）并应用
 func _load_volume_settings() -> void:
-	var cf := ConfigFile.new()
-	if cf.load(VOLUME_PATH) == OK:
-		volume_master = clampf(float(cf.get_value("volume", "master", 1.0)), 0.0, 1.0)
-		volume_music = clampf(float(cf.get_value("volume", "music", 1.0)), 0.0, 1.0)
-		volume_sfx = clampf(float(cf.get_value("volume", "sfx", 1.0)), 0.0, 1.0)
+	var v := VolumeSettings.load_values()
+	volume_master = v["master"]
+	volume_music = v["music"]
+	volume_sfx = v["sfx"]
 	_apply_volume()
 
 func _save_volume_settings() -> void:
-	var cf := ConfigFile.new()
-	cf.set_value("volume", "master", volume_master)
-	cf.set_value("volume", "music", volume_music)
-	cf.set_value("volume", "sfx", volume_sfx)
-	cf.save(VOLUME_PATH)
+	VolumeSettings.save_values(volume_master, volume_music, volume_sfx)
 
 ## 把三个音量值写入对应音频总线
 func _apply_volume() -> void:
@@ -1088,6 +1079,19 @@ func _handle_escape() -> void:
 		items.cancel_arm()
 	else:
 		_open_pause_menu()
+
+## GUI Settings 按钮：等效于“空闲状态下按 ESC”，呼出暂停/设置菜单
+func _on_settings_pressed() -> void:
+	# 与 ESC 处理一致：教程播放、暂停菜单/词条总览/奖励界面已打开时不响应
+	if tutorial_active:
+		return
+	if pause_menu_open:
+		return
+	if buff_overview_open:
+		return
+	if reward_layer != null and reward_layer.visible:
+		return
+	_handle_escape()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if reward_layer != null and reward_layer.visible:

@@ -9,6 +9,9 @@ func _ready() -> void:
 	_base_scale = bg.scale
 	_update_bg()
 	get_viewport().size_changed.connect(_update_bg)
+	# 音乐音量与游戏内绑定：BGM 挂到 Music 总线并按 volume.cfg 应用音量
+	if has_node("AudioStreamPlayer"):
+		VolumeSettings.bind_music($AudioStreamPlayer)
 
 
 ## 窗口尺寸变化时，让背景图跟着一起缩放并居中（以 1600×900 设计分辨率为基准）
