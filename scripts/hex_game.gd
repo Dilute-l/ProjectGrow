@@ -488,7 +488,7 @@ func _build_reward_screen() -> void:
 	vbox.add_child(reward_cards_box)
 
 	reward_continue_button = Button.new()
-	reward_continue_button.text = "继续 ▸（跳过剩余掉落）"
+	reward_continue_button.text = "跳过 ▸"
 	reward_continue_button.pressed.connect(_on_reward_continue)
 	vbox.add_child(reward_continue_button)
 
@@ -514,9 +514,9 @@ func _render_reward_item() -> void:
 			reward_layer.visible = true
 		return
 	var item: Dictionary = _reward_queue[_reward_queue_idx]
-	var prefix := "必定掉落" if bool(item.get("guaranteed", true)) else "概率掉落"
-	reward_title.text = "第 %d 关完成 · %s：%s" % [cleared_levels + 1, prefix, str(item.get("label", ""))]
-	reward_sub_label.text = "选择你的奖励（3 选 1，点击即领取）"
+	# var prefix := "必定掉落" if bool(item.get("guaranteed", true)) else "概率掉落"
+	reward_title.text = "第 %d 关完成" % [cleared_levels + 1]
+	reward_sub_label.text = "选择你的奖励"
 	var options: Array = item.get("options", [])
 	if options.is_empty():
 		var hint := Label.new()
