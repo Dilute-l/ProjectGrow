@@ -49,17 +49,8 @@ var _color_cache := {}         # 核心 id -> 占位符色（modulate 用）
 # 每帧：需要时重绘（跟随扩散/移除/窗口缩放）
 # ---------------------------------------------------------------------------
 func _process(_delta: float) -> void:
-	var main = get_parent()
-	if main == null:
-		return
-	var any := _has_items(main)
-	var geometry_changed: bool = main.hex_size != _last_hex_size or main.map_offset != _last_offset
-	# 有内容、几何变化、或“上一帧有内容但现在被清空（如重置）”时都要重绘
-	if any or geometry_changed or (_had_any and not any):
-		_last_hex_size = main.hex_size
-		_last_offset = main.map_offset
-		_had_any = any
-		queue_redraw()
+	# 触手贴图 + 可部署提示都需跟随状态变化；每帧重绘（开销小）
+	queue_redraw()
 
 func _has_items(main) -> bool:
 	for cell in main.polluted.keys():
@@ -102,6 +93,18 @@ func _draw() -> void:
 				continue
 			var span: float = float(tex.get_width()) * (main.hex_size / HEX_ART_EDGE)
 			_draw_art(center, tex, span, _core_tint(origin_id, main))
+	# 可部署提示：画在触手贴图之上（本节点 z=0，位于 Main 的格子层之上）
+	if main.mode == main.Mode.PLAY and (main.phase == main.Phase.DEPLOY or main.phase == main.Phase.RUNNING):
+		var anywhere := false
+		if main.selected_core >= 0 and main.selected_core < main.core_types.size():
+			var t: Dictionary = main.core_types[main.selected_core]
+			var bm = main.map_data.behavior_for_mode(str(t.get("mode", "")))
+			anywhere = bm.deploy_anywhere()
+		for cell in main.geometry.all_cells():
+			if main.walls.has(cell) or main.turret_positions.has(cell) or main.units.has(cell):
+				continue
+			if anywhere or main.geometry.is_edge(cell):
+				draw_arc(main.geometry.hex_center(cell), main.hex_size * 0.55, 0.0, TAU, 24, Color(0.8, 1.0, 1.0, 0.30), 2.0)
 
 ## 在中心 center 处居中画一张贴图（span 为渲染边长），不旋转，方向由图片本身保证。
 ## mod 为颜色调制：灰度贴图乘上占位符色即可精确换色；原玫红贴图传 Color.WHITE 保持不变。

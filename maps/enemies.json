@@ -14,13 +14,13 @@
       "range": 4,
       "interval_mult": 5,
       "attack": "single",
-      "desc": "她的目光一直很长远，却因为拖延症而总被眼前积堆如山的事务所困扰"
+      "desc": "她的目光一直很长远，却因为拖延症而总被眼前积堆如山的事务所困扰" 
     },
     {
       "id": "rapid",
       "name": "速射炮台",
       "range": 2,
-      "interval_mult": 1.5,
+      "interval_mult": 2,
       "attack": "single",
       "desc": "做事速度太快，以至于出门后她的衣服还在衣柜里等她"
     },

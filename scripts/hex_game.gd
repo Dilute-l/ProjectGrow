@@ -1058,10 +1058,11 @@ func _close_pause_menu() -> void:
 		pause_menu_layer.visible = false
 	queue_redraw()
 
-## 重置：重置当前关卡到部署阶段，并退还本关已消耗的道具（deploy.reset(true)）
+## 重置：重置当前关卡到部署阶段，退还本关已消耗的道具，并自动进入暂停状态
 func _on_pause_menu_reset() -> void:
 	_close_pause_menu()
 	deploy.reset(true)
+	_set_paused(true)   # 重置后自动暂停，等待重新部署
 
 ## 切换编辑模式（关闭暂停菜单后切换，与原左上角“编辑模式”按钮一致）
 func _on_pause_menu_edit_mode() -> void:
@@ -1115,10 +1116,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			_toggle_pause()
 			return
 	if paused:
-		# 暂停时：仍允许部署/移除核心（鼠标），ESC 打开暂停菜单，并更新悬停提示
-		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-			_handle_escape()
-			return
+		# 暂停时：仍允许部署/移除核心（鼠标），ESC 打开暂停菜单，R 打开/关闭控制台
+		if event is InputEventKey and event.pressed:
+			if event.keycode == KEY_ESCAPE:
+				_handle_escape()
+				return
+			if event.keycode == KEY_R:
+				if console_open:
+					console.close()
+				else:
+					console.open()
+				return
 		if console_open:
 			return
 		if event is InputEventMouseMotion:
