@@ -43,6 +43,9 @@ const HEX_EDGE := ICON_SIZE * (2381.0 / 6554.0)
 # 六边形边相接的紧凑间距
 const HEX_W := HEX_EDGE * 1.7320508   # 水平相邻中心距（√3 × 边长）
 const HEX_H := HEX_EDGE * 1.5         # 垂直相邻中心距（1.5 × 边长）
+# 命中框尺寸：按六边形本体（扁平宽 × 尖角高），比图标小，避免方形大框重叠误触
+const BTN_W := HEX_W
+const BTN_H := HEX_EDGE * 2.0
 
 func _init(g) -> void:
 	game = g
@@ -220,18 +223,27 @@ func _populate_core_buttons() -> void:
 		var icon: Texture2D = CORE_ICONS.get(mode, null)
 		if icon == null:
 			continue
-		var btn := TextureButton.new()
-		btn.texture_normal = icon
-		btn.ignore_texture_size = true
-		btn.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-		btn.custom_minimum_size = Vector2(ICON_SIZE, ICON_SIZE)
-		btn.size = Vector2(ICON_SIZE, ICON_SIZE)
+		# 命中框按六边形本体大小（BTN_W × BTN_H），视觉图标用更大尺寸居中叠加
+		var btn := Button.new()
 		btn.toggle_mode = true
+		btn.flat = true
+		btn.custom_minimum_size = Vector2(BTN_W, BTN_H)
+		btn.size = Vector2(BTN_W, BTN_H)
 		btn.set_meta("core_type", i)
 		btn.pressed.connect(select_core.bind(i))
+		# 视觉图标（比命中框大，居中放置；不拦截鼠标，modulate 会级联到子节点一起变暗/变亮）
+		var icon_rect := TextureRect.new()
+		icon_rect.texture = icon
+		icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon_rect.custom_minimum_size = Vector2(ICON_SIZE, ICON_SIZE)
+		icon_rect.size = Vector2(ICON_SIZE, ICON_SIZE)
+		icon_rect.position = Vector2((BTN_W - ICON_SIZE) * 0.5, (BTN_H - ICON_SIZE) * 0.5)
+		icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		btn.add_child(icon_rect)
 		var center := core_grid.custom_minimum_size * 0.5
 		var pos := _parallelogram_position(idx)
-		btn.position = center - _range_center() + pos - Vector2(ICON_SIZE * 0.5, ICON_SIZE * 0.5)
+		btn.position = center - _range_center() + pos - Vector2(BTN_W * 0.5, BTN_H * 0.5)
 		core_grid.add_child(btn)
 		game.core_buttons.append(btn)
 		idx += 1
@@ -253,10 +265,10 @@ func refresh_button_states() -> void:
 		var i := int(b.get_meta("core_type", -1))
 		if i == game.selected_core:
 			b.button_pressed = true
-			b.self_modulate = Color(1.0, 1.0, 1.0)
+			b.modulate = Color(1.0, 1.0, 1.0)
 		else:
 			b.button_pressed = false
-			b.self_modulate = Color(0.5, 0.5, 0.55)
+			b.modulate = Color(0.5, 0.5, 0.55)
 
 # ---------------------------------------------------------------------------
 # 选择 / 解锁刷新
