@@ -249,8 +249,12 @@ offset_top = 853.333
 offset_right = 960.0
 offset_bottom = 1610.333
 theme_override_font_sizes/font_size = 148
-text = "【这段你们自己写吧好吗我就不自作主张去写了】
-"
+text = "摸鱼的美术
+无画技无效率无经验
+听说有鸡蛋领就来了
+有点困zzZ
+但是好玩
+咕咕咕"
 autowrap_mode = 2
 
 [node name="GoodModel……" type="Label" parent="." unique_id=1943437137]
