@@ -198,6 +198,10 @@ var game_controls_layer: CanvasLayer
 var pause_button: Button
 var speed_button: Button
 var settings_button: Button
+# 顶部中央关卡指示：主线显示“第 X 关”；通关主线后（cleared_levels >= MAIN_LINE_LEVELS）进入无尽模式
+const MAIN_LINE_LEVELS := 11   # 主线关卡数（level0~level10 共 11 个）
+var level_indicator_layer: CanvasLayer
+var level_indicator_label: Label
 # 暂停菜单（ESC 打开）：变暗遮罩 + 继续游戏 / 重置 / 编辑模式 / 回到主菜单
 var pause_menu_open := false
 var pause_menu_layer: CanvasLayer
@@ -290,6 +294,8 @@ func _ready() -> void:
 	_build_unique_target_screen()
 	_build_game_controls()
 	_build_pause_menu()
+	_build_level_indicator()
+	_update_level_indicator()
 	_update_ui_scale()
 	# 图层顺序（z_index）：触手 GroundOverlay(0) < 我方核心 PlayerCores(10) < 敌方炮台 TurretOverlay(20)
 	var ground := get_node("GroundOverlay")
@@ -438,6 +444,8 @@ func _update_ui_scale() -> void:
 	_set_layer_transform(game_controls_layer, s, Vector2(vs.x * (1.0 - s), 0.0))
 	_set_layer_transform(reward_layer, s, Vector2(vs.x * (1.0 - s) * 0.5, vs.y * (1.0 - s) * 0.5))
 	_set_layer_transform(pause_menu_layer, s, Vector2(vs.x * (1.0 - s) * 0.5, vs.y * (1.0 - s) * 0.5))
+	# 顶部中央关卡指示：按顶中锚点缩放
+	_set_layer_transform(level_indicator_layer, s, Vector2(vs.x * (1.0 - s) * 0.5, 0.0))
 	# 教程层（若正在播放）也按居中锚点缩放
 	if tutorial_node != null and is_instance_valid(tutorial_node):
 		_set_layer_transform(tutorial_node, s, Vector2(vs.x * (1.0 - s) * 0.5, vs.y * (1.0 - s) * 0.5))
@@ -793,6 +801,41 @@ func _load_level(idx: int) -> void:
 	queue_redraw()
 	guide.check_expand_intro()       # 本局首次进入拓展关卡（难度≥11）播放一次性剧情对话
 	guide.check_enemy_encounters()   # 首次遇到新敌人时播放对应教程
+	_update_level_indicator()        # 关卡切换后刷新顶部中央的关卡指示
+
+# ---------------------------------------------------------------------------
+# 顶部中央关卡指示（主线：第 X 关；进入无尽模式后显示进度）
+# ---------------------------------------------------------------------------
+
+## 创建屏幕顶部中央的关卡指示 Label（场景就绪时调用一次）
+func _build_level_indicator() -> void:
+	level_indicator_layer = CanvasLayer.new()
+	level_indicator_layer.layer = 12   # 位于右上按钮(10)之上、各类弹层(25+)之下
+	add_child(level_indicator_layer)
+	level_indicator_label = Label.new()
+	level_indicator_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	level_indicator_label.add_theme_font_size_override("font_size", 26)
+	level_indicator_label.add_theme_color_override("font_color", Color("ffe9c4"))
+	level_indicator_label.add_theme_color_override("font_outline_color", Color(0.05, 0.05, 0.08, 0.85))
+	level_indicator_label.add_theme_constant_override("outline_size", 6)
+	level_indicator_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	level_indicator_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	# 顶中锚点 + 固定宽矩形，文字始终水平居中（label 会随文案自动换行截断于矩形内）
+	level_indicator_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	level_indicator_label.offset_left = -600.0
+	level_indicator_label.offset_right = 600.0
+	level_indicator_label.offset_top = 6.0
+	level_indicator_label.offset_bottom = 58.0
+	level_indicator_layer.add_child(level_indicator_label)
+
+## 刷新关卡指示文案：主线显示“第 X 关”，通关主线后（第 11 关起）显示无尽模式进度
+func _update_level_indicator() -> void:
+	if level_indicator_label == null:
+		return
+	if cleared_levels >= MAIN_LINE_LEVELS:
+		level_indicator_label.text = "无尽模式 · 已通过 %d 关" % (cleared_levels - MAIN_LINE_LEVELS)
+	else:
+		level_indicator_label.text = "第 %d 关" % level_index
 
 # ---------------------------------------------------------------------------
 # 暂停与倍速（右上角 UI）
