@@ -183,6 +183,10 @@ var speed_button: Button
 var pause_menu_open := false
 var pause_menu_layer: CanvasLayer
 var edit_mode_button: Button   # 暂停菜单中的“编辑模式/游玩模式”切换按钮
+# 音量设置（ESC 暂停菜单中的滑块；0.0 ~ 1.0）
+var volume_master := 1.0
+var volume_music := 1.0
+var volume_sfx := 1.0
 
 # 部署费用条（位于核心类型选择区上方）
 var cost_bar: ProgressBar
@@ -242,6 +246,8 @@ func _create_modules() -> void:
 # ---------------------------------------------------------------------------
 func _ready() -> void:
 	_create_modules()
+	_ensure_audio_buses()           # 建立 Music / SFX 总线，并挂接 BGM / SpreadSE
+	_load_volume_settings()         # 读取并应用上次保存的音量
 	EnemyTurret.load_enemy_defs()   # 从 maps/enemies.json 加载敌方炮台类型（数值 + 中文名）
 	Tutorial.load_enemy_stages()    # 提前加载敌人首次遭遇台词（供关卡切换时检测新敌人）
 	map_data.load_map()
@@ -833,6 +839,103 @@ func _cycle_speed() -> void:
 		speed_button.text = str(int(game_speed)) + "x"
 
 # ---------------------------------------------------------------------------
+# 音量设置（音频总线：Master / Music / SFX）
+# ---------------------------------------------------------------------------
+const VOLUME_PATH := "user://volume.cfg"
+
+## 确保 Music / SFX 音频总线存在（Master 恒为 0 号），并把场景内的 BGM / SpreadSE 挂到对应总线
+func _ensure_audio_buses() -> void:
+	_ensure_audio_bus("Music")
+	_ensure_audio_bus("SFX")
+	if has_node("BGM"):
+		$BGM.bus = "Music"
+	if has_node("SpreadSE"):
+		$SpreadSE.bus = "SFX"
+
+func _ensure_audio_bus(bus_name: String) -> void:
+	if AudioServer.get_bus_index(bus_name) != -1:
+		return
+	AudioServer.add_bus()
+	var idx := AudioServer.bus_count - 1
+	AudioServer.set_bus_name(idx, bus_name)
+	AudioServer.set_bus_send(idx, "Master")
+
+## 从 user://volume.cfg 读取音量并应用（缺失则用默认 1.0）
+func _load_volume_settings() -> void:
+	var cf := ConfigFile.new()
+	if cf.load(VOLUME_PATH) == OK:
+		volume_master = clampf(float(cf.get_value("volume", "master", 1.0)), 0.0, 1.0)
+		volume_music = clampf(float(cf.get_value("volume", "music", 1.0)), 0.0, 1.0)
+		volume_sfx = clampf(float(cf.get_value("volume", "sfx", 1.0)), 0.0, 1.0)
+	_apply_volume()
+
+func _save_volume_settings() -> void:
+	var cf := ConfigFile.new()
+	cf.set_value("volume", "master", volume_master)
+	cf.set_value("volume", "music", volume_music)
+	cf.set_value("volume", "sfx", volume_sfx)
+	cf.save(VOLUME_PATH)
+
+## 把三个音量值写入对应音频总线
+func _apply_volume() -> void:
+	AudioServer.set_bus_volume_linear(0, volume_master)  # Master
+	var m := AudioServer.get_bus_index("Music")
+	if m != -1:
+		AudioServer.set_bus_volume_linear(m, volume_music)
+	var s := AudioServer.get_bus_index("SFX")
+	if s != -1:
+		AudioServer.set_bus_volume_linear(s, volume_sfx)
+
+func _on_master_slider(v: float) -> void:
+	volume_master = v
+	_apply_volume()
+	_save_volume_settings()
+
+func _on_music_slider(v: float) -> void:
+	volume_music = v
+	_apply_volume()
+	_save_volume_settings()
+
+func _on_sfx_slider(v: float) -> void:
+	volume_sfx = v
+	_apply_volume()
+	_save_volume_settings()
+
+## 在 parent 下追加一行「标签 + 滑块 + 百分比」；返回滑块
+func _add_volume_row(parent: Control, label_text: String, init_value: float, on_change: Callable) -> HSlider:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	parent.add_child(row)
+
+	var lbl := Label.new()
+	lbl.text = label_text
+	lbl.custom_minimum_size = Vector2(80, 0)
+	lbl.add_theme_font_size_override("font_size", 15)
+	row.add_child(lbl)
+
+	var slider := HSlider.new()
+	slider.min_value = 0.0
+	slider.max_value = 1.0
+	slider.step = 0.01
+	slider.value = init_value
+	slider.custom_minimum_size = Vector2(160, 0)
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(slider)
+
+	var val := Label.new()
+	val.text = "%d%%" % int(init_value * 100)
+	val.custom_minimum_size = Vector2(44, 0)
+	val.add_theme_font_size_override("font_size", 13)
+	val.add_theme_color_override("font_color", Color("9fb0cc"))
+	row.add_child(val)
+
+	slider.value_changed.connect(func(v: float):
+		val.text = "%d%%" % int(v * 100)
+		on_change.call(v)
+	)
+	return slider
+
+# ---------------------------------------------------------------------------
 # 暂停菜单（ESC 打开）：变暗遮罩 + 继续游戏 / 重置 / 回到主菜单
 # ---------------------------------------------------------------------------
 func _build_pause_menu() -> void:
@@ -895,6 +998,18 @@ func _build_pause_menu() -> void:
 	menu_btn.custom_minimum_size = Vector2(240, 0)
 	menu_btn.pressed.connect(_on_pause_menu_main_menu)
 	vbox.add_child(menu_btn)
+
+	# —— 音量设置 ——
+	var vol_title := Label.new()
+	vol_title.text = "音量设置"
+	vol_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vol_title.add_theme_font_size_override("font_size", 18)
+	vol_title.add_theme_color_override("font_color", Color("ffd166"))
+	vbox.add_child(vol_title)
+
+	_add_volume_row(vbox, "总音量", volume_master, _on_master_slider)
+	_add_volume_row(vbox, "音乐音量", volume_music, _on_music_slider)
+	_add_volume_row(vbox, "音效音量", volume_sfx, _on_sfx_slider)
 
 func _open_pause_menu() -> void:
 	pause_menu_open = true
