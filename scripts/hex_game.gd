@@ -1100,6 +1100,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 			hud.close_buff_overview()
 		return  # 词条总览打开时屏蔽游戏输入
+	if tutorial_active:
+		return  # 剧情/教程播放期间屏蔽所有游戏交互（含暂停部署、快捷键）
 	# 全局快捷键：F 倍速、空格暂停（暂停中也生效）
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_F:
@@ -1120,8 +1122,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			queue_redraw()
 		elif mode != Mode.EDIT and event is InputEventMouseButton and event.pressed:
 			_handle_deploy_mouse(event)
-		return
-	if tutorial_active:
 		return
 	if tutorial_gate == "deploy" and event is InputEventKey:
 		return  # 部署等待期间屏蔽键盘，只允许鼠标放置
