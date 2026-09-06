@@ -7,3 +7,5 @@
 # 导出的游戏构建产物（体积过大，不入库）
 DEMO.exe
 DEMO.pck
+grow.exe
+grow.pck

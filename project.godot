@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="projectGrow"
+config/name="魔法少女和触手曾是敌人"
 run/main_scene="uid://bxuxjyfalqpn1"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="uid://bmxw2ebw6wtbv"

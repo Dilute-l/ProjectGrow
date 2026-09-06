@@ -157,7 +157,8 @@ text = "虚假的主程
 token 是我的骨架
 红牛与咖啡是我的血肉
 真正在生长的是屎山代码
-其实一个礼拜前刚开始学怎么使用 godot"
+其实一个礼拜前刚开始学
+怎么使用 godot"
 autowrap_mode = 2
 
 [node name="Hidden" type="Label" parent="Dilute" unique_id=73878931]
@@ -202,7 +203,8 @@ text = "副程序兼部分文案
 压榨大肥鱼压榨的很开心
 打算在这里宣传哈集杯
 还有未命名大陆
-第一次用除了rm以外的引擎做项目"
+第一次用除了rm以外的引
+擎做项目"
 autowrap_mode = 2
 
 [node name="CatkinBtn" type="Button" parent="Catkin" unique_id=1485033373]
@@ -257,9 +259,12 @@ offset_right = 960.0
 offset_bottom = 1610.333
 theme_override_font_sizes/font_size = 148
 text = "策划和平衡师从安东尼，
-文案深得猴子打字机精髓，
-制作期间不务正业打apex遭受天谴导致段位掉了下来
-也许可以竞选最没用的岗位？"
+文案深得猴子打字机精髓
+制作期间不务正业打apex
+遭受天谴导致段位掉了下
+来
+也许可以竞选最没用的岗
+位？"
 autowrap_mode = 2
 
 [node name="Hidden" type="Label" parent="Midu" unique_id=2032102003]
@@ -301,7 +306,8 @@ offset_right = 960.0
 offset_bottom = 1610.333
 theme_override_font_sizes/font_size = 148
 text = "策划兼部分文案
-擅长在后台偷偷挂着游戏摸鱼以及提供情绪价值
+擅长在后台偷偷挂着游戏
+摸鱼以及提供情绪价值
 熬夜但是白天起不来之人"
 autowrap_mode = 2
 
