@@ -36,6 +36,11 @@ const LEVEL_PATHS: Array[String] = [
 	"res://maps/level8.json",
 	"res://maps/level9.json",
 	"res://maps/level10.json",
+	# 拓展关卡（难度 11；主线 BOSS 通关后随机进入）
+	"res://maps/level-1.json",
+	"res://maps/level-2.json",
+	"res://maps/leveljb.json",
+	"res://maps/levelmi.json",
 ]
 var level_index := 0
 # 本局已通关数（随机关卡选关的“完成总关卡数”；每通关一关 +1，新一局清零）
@@ -746,7 +751,7 @@ func _hide_reward_screen() -> void:
 ## 领取奖励后 / 点继续（跳过）：按已完成关卡数，在符合难度的关卡里随机选下一关。
 ## 原本的顺序推进（level_index+1 循环）由 hex_level_select 模块取代。
 func _advance_after_reward() -> void:
-	cleared_levels += 1
+	if cleared_levels <= 10: cleared_levels += 1
 	# 排除刚打完的这关，避免立刻重打同关
 	var exclude := str(LEVEL_PATHS[level_index])
 	var next_path := level_select.pick_next_level(cleared_levels, exclude)
@@ -770,6 +775,7 @@ func _load_level(idx: int) -> void:
 	deploy.reset()
 	_set_paused(true)   # 每关开局默认进入暂停
 	queue_redraw()
+	guide.check_expand_intro()       # 本局首次进入拓展关卡（难度≥11）播放一次性剧情对话
 	guide.check_enemy_encounters()   # 首次遇到新敌人时播放对应教程
 
 # ---------------------------------------------------------------------------

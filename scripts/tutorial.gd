@@ -42,6 +42,7 @@ var speaker_name := ""
 var speaker_prefix := ""
 var stages: Array = []   # 每个元素：{ "id": String, "lines": Array[String] }
 static var enemy_stages: Dictionary = {}   # 敌人类型 -> 首次遭遇台词（与 stages 同源 JSON）
+var extra_stages: Dictionary = {}   # 一次性剧情对话：id -> 台词（如 expand；不参与 start() 线性流程）
 var stage_index := 0
 var line_index := 0
 var active := false
@@ -84,6 +85,7 @@ func _load_dialogue() -> void:
 								lines.append(str(ln))
 							stages.append({"id": str(entry.get("id", "")), "lines": lines})
 				_parse_enemy_stages(data)
+				_parse_extra_stages(data)
 
 # 从已解析的 JSON 数据中读取敌人首次遭遇台词（敌人类型 -> 台词数组）
 static func _parse_enemy_stages(data) -> void:
@@ -106,6 +108,18 @@ static func load_enemy_stages() -> void:
 			var text := f.get_as_text()
 			f.close()
 			_parse_enemy_stages(JSON.parse_string(text))
+
+# 从已解析的 JSON 数据中读取一次性剧情对话（id -> 台词；供 start_stage 按需播放）
+func _parse_extra_stages(data) -> void:
+	extra_stages.clear()
+	if data is Dictionary:
+		var es = data.get("extra_stages", {})
+		if es is Dictionary:
+			for k in es.keys():
+				var lines: Array = []
+				for ln in es[k]:
+					lines.append(str(ln))
+				extra_stages[str(k)] = lines
 
 func _build_ui() -> void:
 	# 1) 聚光灯遮罩（整屏变暗，可挖洞；不拦截点击）
@@ -208,6 +222,22 @@ func start_enemy(enemy_type: String) -> void:
 	waiting_deploy = false
 	waiting_attack = false
 	_show_current()
+
+## 播放某个一次性剧情对话（extra_stages 段，如进入拓展关卡时的 expand）；
+## 单阶段、无部署/攻击门槛，播完即结束；找不到该 id 返回 false
+func start_stage(stage_id: String) -> bool:
+	if not extra_stages.has(stage_id):
+		return false
+	var lines: Array = extra_stages[stage_id]
+	stages = [{"id": stage_id, "lines": lines}]
+	stage_index = 0
+	line_index = 0
+	active = true
+	visible = true
+	waiting_deploy = false
+	waiting_attack = false
+	_show_current()
+	return true
 
 func _show_current() -> void:
 	if stage_index >= stages.size():

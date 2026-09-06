@@ -10,6 +10,11 @@ extends RefCounted
 var game
 var seen_enemy_types: Dictionary = {}   # 本局已介绍过的敌人类型（首次遭遇教程只播一次）
 
+# 一次性剧情对话（extra_stages）：进入拓展关卡时播放
+const EXPAND_STAGE_ID := "expand"       # tutorial_dialogue.json extra_stages 中的对话 id
+const EXPAND_MIN_DIFFICULTY := 11       # 难度 >= 该值的关卡视为拓展关卡
+var expand_played := false              # 本局是否已播过 expand 一次性对话
+
 func _init(g) -> void:
 	game = g
 
@@ -129,4 +134,36 @@ func on_enemy_finished() -> void:
 	game.tutorial_spotlight = ""
 	if game.tutorial_node != null:
 		game.tutorial_node.queue_free()
+		game.tutorial_node = null
+
+# ---------------------------------------------------------------------------
+# 一次性剧情对话（进入拓展关卡时）
+# ---------------------------------------------------------------------------
+
+# 关卡切换时调用：本局首次进入拓展关卡（难度 >= EXPAND_MIN_DIFFICULTY）播放 expand 对话
+func check_expand_intro() -> void:
+	if expand_played:
+		return
+	if game.tutorial_node != null:
+		return   # 已有教程/对话在播放（主教程或敌人首遇），让位
+	var idx: int = game.level_index
+	if idx < 0 or idx >= game.LEVEL_PATHS.size():
+		return
+	if game.level_select.difficulty_of(str(game.LEVEL_PATHS[idx])) < EXPAND_MIN_DIFFICULTY:
+		return
+	play_stage(EXPAND_STAGE_ID)
+
+# 播放一次性剧情对话；数据中不存在该 id 时不标记已播（下次进入仍可触发）
+func play_stage(stage_id: String) -> void:
+	game.tutorial_active = true
+	var node := Tutorial.new()
+	game.tutorial_node = node
+	game.add_child(node)
+	node.finished.connect(on_enemy_finished)
+	game._update_ui_scale()
+	if node.start_stage(stage_id):
+		expand_played = true
+	else:
+		game.tutorial_active = false
+		node.queue_free()
 		game.tutorial_node = null
